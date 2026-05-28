@@ -52,9 +52,9 @@
     // AWS CLI v2: comandos `aws ...` (Aulas 5, 7–11).
     "ghcr.io/devcontainers/features/aws-cli:1": {},
 
-    // Node.js LTS: necessário para o AWS CDK (Aula 11). O `cdk` em si é
-    // instalado no post-create (npm global).
-    "ghcr.io/devcontainers/features/node:1": { "version": "lts" },
+    // (Node.js NÃO vem por feature: a feature oficial usa nvm + `source`, que
+    //  falha no /bin/sh=dash do Debian trixie. Instalamos Node via apt no
+    //  Dockerfile (target dev). O `cdk` é instalado no post-create via npm.)
 
     // kubectl (sem helm e sem minikube — não usamos). Aulas 6, 8, 9.
     "ghcr.io/devcontainers/features/kubectl-helm-minikube:1": {

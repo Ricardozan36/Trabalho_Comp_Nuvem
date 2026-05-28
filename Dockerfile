@@ -92,12 +92,17 @@ CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${APP_PORT} --proxy
 FROM base AS dev
 
 # `sudo` SOMENTE no target dev (nunca no prod). POR QUÊ: o devcontainer roda
-# como usuário não-root `appuser`; algumas features e o post-create script
-# (instalar eksctl, `npm i -g aws-cdk`) precisam escrever em /usr/local.
+# como usuário não-root `appuser`; o post-create script (instalar eksctl,
+# `npm i -g aws-cdk`) precisa escrever em /usr/local.
 # IMPACTO: conveniência de desenvolvimento. RISCO: sudo numa imagem de produção
 # aumenta a superfície de ataque — por isso ele fica fora do target `prod`.
+#
+# Também instalamos Node.js + npm AQUI (não via feature do devcontainer).
+# POR QUÊ: a feature oficial de Node usa nvm + `source`, que falha no shell
+# padrão (dash) do Debian trixie. O Node do apt é estável e suficiente para o
+# AWS CDK (Aula 11). O `cdk` em si é instalado no post-create via npm.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends sudo \
+ && apt-get install -y --no-install-recommends sudo nodejs npm \
  && rm -rf /var/lib/apt/lists/* \
  && echo "appuser ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/appuser \
  && chmod 0440 /etc/sudoers.d/appuser
