@@ -56,7 +56,29 @@ Quase tudo de nuvem é feito por comandos — então é normal estranhar no come
 
 ## Parte 1 — Instalar as ferramentas base
 
-Instale **todas** as ferramentas abaixo. Após cada instalação, **feche e reabra
+> ## 🧭 Dois modos de trabalho — escolha um antes de instalar
+>
+> **Modo A — Devcontainer (RECOMENDADO neste curso).** Você desenvolve dentro
+> de um container, abrindo o projeto no VS Code. As ferramentas de nuvem (AWS
+> CLI, kubectl, eksctl, Node/CDK, docker) **já vêm prontas dentro do container**.
+> No **HOST** você instala apenas:
+> - **Docker Desktop** (1.2)
+> - **VS Code + extensão Dev Containers** (1.10)
+> - **Git** (1.1)
+> - **WSL2** (1.3, só Windows)
+> - **kind** (1.7) — *única* ferramenta de nuvem que roda no host (Aula 6).
+>
+> Pode **pular** no host: AWS CLI, kubectl, eksctl, Node/CDK (1.5, 1.6, 1.8,
+> 1.9) — elas vivem no container. As **credenciais** você configura **uma vez
+> no host** (Parte 3) e o container lê o mesmo arquivo automaticamente.
+>
+> **Modo B — Tudo no host.** Você instala e roda tudo direto no seu sistema,
+> sem container. Aí siga **todos** os passos 1.1 a 1.10.
+>
+> Em caso de dúvida, use o **Modo A**. O resto da Parte 1 cobre os dois — só
+> instale o que o seu modo pede.
+
+Instale as ferramentas do seu modo. Após cada instalação, **feche e reabra
 o terminal** e rode o comando de verificação para confirmar.
 
 > ⚠️ Sempre que um comando de verificação mostrar um número de versão, deu
@@ -312,6 +334,17 @@ credenciais temporárias:
 ## Parte 3 — Conectar a AWS CLI ao Learner Lab
 
 Você vai colar as credenciais copiadas num arquivo de configuração da AWS.
+
+> 🧭 **Modo A (devcontainer):** edite este arquivo **no HOST** mesmo. O
+> devcontainer monta o seu `~/.aws` para dentro do container, então o
+> `aws`/`kubectl`/`eksctl`/`cdk` que rodam no container leem o **mesmo**
+> arquivo automaticamente. Você configura **uma vez** e vale nos dois lugares.
+> A cada nova sessão do Learner Lab, basta colar o bloco novo aqui no host — o
+> container enxerga na hora (não precisa reabrir o container).
+>
+> ⚠️ No Modo A, **crie a pasta `~/.aws` no host ANTES** de abrir o devcontainer
+> pela primeira vez (passo 3.2). Se ela não existir na hora de abrir, o Docker
+> cria uma pasta vazia pertencente ao root e o container não consegue gravar.
 
 ### 3.1 — Onde fica o arquivo de credenciais
 

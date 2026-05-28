@@ -78,8 +78,25 @@ CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${APP_PORT}"]
 # Imagem usada pelo devcontainer do VS Code.
 # NÃO copia o código: ele vem por volume montado pelo devcontainer/compose,
 # permitindo hot-reload (uvicorn --reload) e debug remoto (debugpy na 5678).
+#
+# Ferramentas de nuvem (AWS CLI, kubectl, eksctl, Node/CDK, docker CLI) NÃO são
+# instaladas aqui: o devcontainer.json as adiciona via "features" oficiais.
+# POR QUÊ features e não RUN no Dockerfile: as features já tratam versão,
+# arquitetura (amd64/arm64) e integração (ex.: docker-outside-of-docker alinha
+# o grupo do socket). Menos código para manter e mais portável.
 # ---------------------------------------------------------------------------
 FROM base AS dev
+
+# `sudo` SOMENTE no target dev (nunca no prod). POR QUÊ: o devcontainer roda
+# como usuário não-root `appuser`; algumas features e o post-create script
+# (instalar eksctl, `npm i -g aws-cdk`) precisam escrever em /usr/local.
+# IMPACTO: conveniência de desenvolvimento. RISCO: sudo numa imagem de produção
+# aumenta a superfície de ataque — por isso ele fica fora do target `prod`.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends sudo \
+ && rm -rf /var/lib/apt/lists/* \
+ && echo "appuser ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/appuser \
+ && chmod 0440 /etc/sudoers.d/appuser
 
 COPY --from=builder-dev --chown=appuser:appgroup /root/.local /home/appuser/.local
 

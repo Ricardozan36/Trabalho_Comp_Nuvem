@@ -1,54 +1,100 @@
 // =============================================================================
-// devcontainer.json — CloudTask AI SaaS (Aula 2)
+// devcontainer.json — CloudTask AI SaaS (cloud-native real)
 // -----------------------------------------------------------------------------
-// MUDANÇA em relação à Aula 1: migramos de `build` direto no Dockerfile
-// para `dockerComposeFile` apontando para `docker-compose.yml`. Isso prepara
-// a Aula 3, quando adicionaremos o serviço `db` (PostgreSQL 16 compatível
-// com Amazon RDS for PostgreSQL) ao mesmo compose — sem nenhuma mudança
-// aqui no devcontainer.
+// O VS Code abre o projeto DENTRO do container `api` (definido no
+// docker-compose.yml). O terminal integrado já é o Linux do container.
+//
+// NESTA configuração instalamos TAMBÉM as ferramentas de nuvem no container
+// (AWS CLI, kubectl, eksctl, Node/CDK, docker CLI), via "features" oficiais.
+// Assim o aluno faz TUDO (dev + deploy) sem sair do VS Code.
+//
+// CREDENCIAIS — ponto importante:
+//   Montamos o ~/.aws e ~/.kube do HOST dentro do container (ver "mounts").
+//   POR QUÊ: você configura as credenciais UMA vez (no host) e o container lê
+//   o MESMO arquivo. O AWS Academy troca as credenciais a cada sessão — você
+//   cola o bloco novo em ~/.aws/credentials no host e o container enxerga na
+//   hora (o mount é "vivo"). Não há configuração dupla.
+//
+// EXCEÇÃO — kind (Aula 6):
+//   O `kind` cria o cluster usando o Docker do host e expõe a API em
+//   127.0.0.1 do HOST. De dentro do container isso não é alcançável sem
+//   gambiarra de rede. Então `kind` + `kubectl` do kind rodam no HOST.
+//   Para EKS (Aulas 7–11), o `kubectl`/`eksctl`/`cdk` do container funcionam
+//   normalmente (falam com a API pública da AWS).
 //
 // Como usar:
-//   1. Instalar extensão "Dev Containers" (ms-vscode-remote.remote-containers)
-//   2. Abrir esta pasta no VS Code
-//   3. F1 → "Dev Containers: Reopen in Container"
-//
-// Subir tudo sem VS Code:
-//   docker compose up --build
-//
-// Simular produção:
-//   docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build
+//   1. (Uma vez) crie a pasta ~/.aws no host e cole as credenciais do Learner
+//      Lab em ~/.aws/credentials (ver docs/aws-academy-setup.md, Parte 3).
+//   2. F1 → "Dev Containers: Rebuild and Reopen in Container".
+//      (Rebuild porque adicionamos features e mounts novos.)
 // =============================================================================
 {
-  "name": "CloudTask AI SaaS — dev (semana 1, via compose)",
+  "name": "CloudTask AI SaaS — dev cloud-native (via compose)",
 
-  // Aula 2: o compose é a fonte da verdade para o ambiente.
+  // O compose é a fonte da verdade do ambiente (API + PostgreSQL).
   "dockerComposeFile": ["../docker-compose.yml"],
-
-  // Serviço ao qual o VS Code se conecta. Em aulas futuras outros serviços
-  // (db, etc.) sobem juntos automaticamente.
   "service": "api",
-
-  // Pasta aberta dentro do container. Bate com o `volumes: .:/app` do compose.
   "workspaceFolder": "/app",
-
-  // Quando o VS Code fechar, para os containers do compose (libera memória).
   "shutdownAction": "stopCompose",
-
-  // Usuário não-root criado no Dockerfile.
   "remoteUser": "appuser",
-
-  // Mantém o container vivo enquanto o VS Code estiver conectado.
-  // O uvicorn é iniciado manualmente pelo aluno (terminal ou debugger),
-  // o que facilita o ensino e o debug interativo.
   "overrideCommand": true,
 
-  // Features = "add-ons" oficiais instalados dentro do container.
+  // ---------------------------------------------------------------------------
+  // Features = "add-ons" oficiais instalados no container durante o build.
+  // Rodam como root, então não esbarram em permissão (diferente de comandos
+  // pós-criação, que rodam como appuser).
+  // ---------------------------------------------------------------------------
   "features": {
+    // Git e GitHub CLI: commitar/abrir PRs de dentro do container.
     "ghcr.io/devcontainers/features/git:1": {},
-    "ghcr.io/devcontainers/features/github-cli:1": {}
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+
+    // AWS CLI v2: comandos `aws ...` (Aulas 5, 7–11).
+    "ghcr.io/devcontainers/features/aws-cli:1": {},
+
+    // Node.js LTS: necessário para o AWS CDK (Aula 11). O `cdk` em si é
+    // instalado no post-create (npm global).
+    "ghcr.io/devcontainers/features/node:1": { "version": "lts" },
+
+    // kubectl (sem helm e sem minikube — não usamos). Aulas 6, 8, 9.
+    "ghcr.io/devcontainers/features/kubectl-helm-minikube:1": {
+      "version": "latest",
+      "helm": "none",
+      "minikube": "none"
+    },
+
+    // docker-outside-of-docker: dá um `docker` DENTRO do container que fala
+    // com o daemon do HOST (compartilha o socket). Permite `docker build` e
+    // `docker push` (Aula 7 — ECR) sem sair do VS Code.
+    // POR QUÊ "outside" e não "in-docker": reaproveitar o Docker do host é
+    // mais leve e evita Docker-dentro-de-Docker (privilegiado, pesado).
+    // RISCO: o container ganha acesso ao Docker do host — aceitável em
+    // ambiente de desenvolvimento/aula.
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
+      "moby": true
+    }
   },
 
-  // Extensões e configurações do VS Code aplicadas automaticamente.
+  // ---------------------------------------------------------------------------
+  // Mounts extras: credenciais compartilhadas host <-> container.
+  //
+  // O truque `${localEnv:HOME}${localEnv:USERPROFILE}` resolve o diretório do
+  // usuário em qualquer SO: no Windows HOME é vazio e USERPROFILE existe; no
+  // macOS/Linux é o contrário. Assim o mesmo arquivo funciona para todos.
+  //
+  // CUIDADO: a pasta ~/.aws precisa EXISTIR no host antes de abrir o
+  // devcontainer (senão o Docker cria uma pasta vazia pertencente ao root).
+  // O post-create ajusta o dono por garantia.
+  // ---------------------------------------------------------------------------
+  "mounts": [
+    "source=${localEnv:HOME}${localEnv:USERPROFILE}/.aws,target=/home/appuser/.aws,type=bind,consistency=cached",
+    "source=${localEnv:HOME}${localEnv:USERPROFILE}/.kube,target=/home/appuser/.kube,type=bind,consistency=cached"
+  ],
+
+  // Instala eksctl + AWS CDK e ajusta permissões das credenciais montadas.
+  // Roda UMA vez, após o container ser criado.
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+
   "customizations": {
     "vscode": {
       "extensions": [
@@ -58,7 +104,8 @@
         "charliermarsh.ruff",
         "tamasfe.even-better-toml",
         "redhat.vscode-yaml",
-        "ms-azuretools.vscode-docker"
+        "ms-azuretools.vscode-docker",
+        "amazonwebservices.aws-toolkit-vscode"
       ],
       "settings": {
         "python.defaultInterpreterPath": "/home/appuser/.local/bin/python",
@@ -68,9 +115,7 @@
           "source.fixAll.ruff": "explicit",
           "source.organizeImports.ruff": "explicit"
         },
-        "[python]": {
-          "editor.defaultFormatter": "charliermarsh.ruff"
-        },
+        "[python]": { "editor.defaultFormatter": "charliermarsh.ruff" },
         "files.exclude": {
           "**/__pycache__": true,
           "**/.pytest_cache": true,
@@ -80,12 +125,6 @@
     }
   },
 
-  // Roda uma vez, logo após o container subir pela primeira vez.
-  "postCreateCommand": "python -V && pip list",
-
-  // Portas encaminhadas automaticamente para o host.
-  // (As mesmas portas já estão publicadas pelo compose; aqui é só metadata
-  // para o painel "Ports" do VS Code mostrar rótulos amigáveis.)
   "forwardPorts": [8000, 5678],
   "portsAttributes": {
     "8000": { "label": "FastAPI",  "onAutoForward": "notify" },
