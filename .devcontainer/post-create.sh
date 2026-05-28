@@ -54,6 +54,19 @@ node --version   || true
 cdk --version    || true
 docker --version || true
 
+echo "==> [post-create] Limpando safe.directory herdado do host..."
+# O VS Code copia o ~/.gitconfig do HOST para dentro do container (para os
+# commits saírem com seu nome/e-mail). Mas as entradas `safe.directory` do
+# host costumam ser CAMINHOS DO WINDOWS (ex.: F:/...), que no Linux do container
+# não são absolutos -> o git imprime "warning: safe.directory '...' not absolute"
+# a cada chamada (o prompt chama git para mostrar a branch).
+# POR QUÊ remover: tira o ruído e evita expor caminhos de outros projetos seus.
+# IMPACTO: mantém nome/e-mail do gitconfig; só apaga os safe.directory inválidos.
+git config --global --unset-all safe.directory 2>/dev/null || true
+# Confia no diretório do projeto montado (e em qualquer um, dentro do container).
+git config --global --add safe.directory /app
+git config --global --add safe.directory '*'
+
 echo "==> [post-create] Configurando o terminal (oh-my-zsh: plugins + tema)..."
 # Plugins externos (não vêm no oh-my-zsh). Clonados na pasta custom do omz.
 ZSH_CUSTOM="${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}"
