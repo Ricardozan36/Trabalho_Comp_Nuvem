@@ -63,6 +63,14 @@ o terminal** e rode o comando de verificação para confirmar.
 > certo. Se aparecer "command not found" / "não é reconhecido", a instalação
 > falhou ou o terminal não foi reaberto.
 
+> 💡 **Processador ARM?** Os comandos manuais de Linux abaixo baixam binários
+> `amd64` (Intel/AMD — a maioria dos PCs). Se você usa ARM (Raspberry Pi,
+> alguns ambientes Apple Silicon ou VMs ARM), troque **`amd64` por `arm64`**
+> nas URLs. No Windows e no macOS isso é automático (winget/brew escolhem certo).
+
+> 💡 **Se um `winget install` falhar** com "Nenhum pacote encontrou os
+> critérios", o ID pode ter mudado. Descubra o novo com `winget search <nome>`.
+
 ### 1.1 — Git (controle de versão)
 
 **Windows:** baixe em <https://git-scm.com/download/win> e instale com as opções
@@ -163,7 +171,7 @@ O `kubectl` é o comando que conversa com clusters Kubernetes.
 ```powershell
 winget install -e --id Kubernetes.kubectl
 ```
-**macOS:** `brew install kubectl`
+**macOS:** `brew install kubectl` *(é um atalho para a fórmula `kubernetes-cli`; ambos funcionam)*
 **Linux:**
 ```bash
 curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
