@@ -23,10 +23,10 @@ RISCO/CUIDADO:
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import Field, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -70,7 +70,15 @@ class Settings(BaseSettings):
     behind_proxy: bool = Field(default=True)
     # Hosts aceitos pelo TrustedHostMiddleware. "*" = qualquer host (dev).
     #   Em produção, liste o domínio real para mitigar Host header spoofing.
-    trusted_hosts: list[str] = Field(default_factory=lambda: ["*"])
+    #
+    # `Annotated[..., NoDecode]`: por padrão o pydantic-settings tenta fazer
+    # JSON-decode do valor de campos do tipo lista (esperaria '["a","b"]').
+    # Como no .env escrevemos uma lista SIMPLES separada por vírgula
+    # (ex.: TRUSTED_HOSTS=api.exemplo.com,localhost), o JSON falharia em "*".
+    # NoDecode desliga esse parse e deixa o nosso validator abaixo dividir o CSV.
+    trusted_hosts: Annotated[list[str], NoDecode] = Field(
+        default_factory=lambda: ["*"],
+    )
 
     model_config = SettingsConfigDict(
         env_file=".env",
