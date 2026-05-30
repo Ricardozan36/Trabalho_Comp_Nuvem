@@ -135,8 +135,15 @@ FROM base AS dev
 # POR QUÊ: a feature oficial de Node usa nvm + `source`, que falha no shell
 # padrão (dash) do Debian trixie. O Node do apt é estável e suficiente para o
 # AWS CDK (Aula 11). O `cdk` em si é instalado no post-create via npm.
+#
+# Ferramentas auxiliares úteis no devcontainer:
+#   postgresql-client  -> dá o `psql` para inspecionar o banco
+#   netcat-openbsd     -> dá o `nc` para testar conectividade (host:porta)
+#   iputils-ping       -> ping
 RUN apt-get update \
- && apt-get install -y --no-install-recommends sudo nodejs npm \
+ && apt-get install -y --no-install-recommends \
+      sudo nodejs npm \
+      postgresql-client netcat-openbsd iputils-ping \
  && rm -rf /var/lib/apt/lists/* \
  && echo "appuser ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/appuser \
  && chmod 0440 /etc/sudoers.d/appuser
