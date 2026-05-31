@@ -48,13 +48,23 @@ plugins=(
 source "$ZSH/oh-my-zsh.sh"
 
 # ----- VS Code: shell integration -------------------------------------------
-# Habilita o "sticky scroll" (linha do comando fica fixa no topo enquanto
-# rolamos a saída longa), decorações de prompt/exit code e command markers.
-# POR QUÊ o source manual: às vezes a auto-injeção do VS Code não roda em
-# devcontainers que customizam o shell — `code --locate-shell-integration-path`
-# devolve o caminho do script e o sourcemos uma vez.
-if [[ "$TERM_PROGRAM" == "vscode" ]] && command -v code &>/dev/null; then
-    . "$(code --locate-shell-integration-path zsh)" 2>/dev/null
+# Habilita o "sticky scroll" (linha do comando fixa no topo enquanto rolamos
+# a saída longa), decorações de prompt/exit code e command markers.
+# Tentamos 2 caminhos para achar o script `shellIntegration.zsh`:
+#   1. via `code --locate-shell-integration-path zsh` (oficial)
+#   2. procurando direto no ~/.vscode-server (fallback, caso `code` não esteja no PATH)
+if [[ "$TERM_PROGRAM" == "vscode" ]]; then
+    _vsc_int=""
+    if command -v code &>/dev/null; then
+        _vsc_int="$(code --locate-shell-integration-path zsh 2>/dev/null)"
+    fi
+    if [[ -z "$_vsc_int" || ! -f "$_vsc_int" ]]; then
+        _vsc_int="$(find ~/.vscode-server -name 'shellIntegration.zsh' 2>/dev/null | head -1)"
+    fi
+    if [[ -n "$_vsc_int" && -f "$_vsc_int" ]]; then
+        . "$_vsc_int"
+    fi
+    unset _vsc_int
 fi
 
 # ----- Histórico de comandos -------------------------------------------------
