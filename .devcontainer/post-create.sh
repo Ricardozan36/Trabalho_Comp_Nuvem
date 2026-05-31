@@ -27,6 +27,32 @@ chmod 700 /home/appuser/.aws /home/appuser/.kube || true
 sudo mkdir -p /commandhistory
 sudo chown -R appuser:appuser /commandhistory || true
 
+echo "==> [post-create] Permitindo appuser acessar o socket do Docker..."
+# O docker-outside-of-docker monta /var/run/docker.sock do host. A feature
+# normalmente alinha o grupo dele com a entrypoint, mas com overrideCommand:false
+# nossa CMD do uvicorn pula essa entrypoint. Detectamos o GID do socket e
+# garantimos que appuser pertença ao grupo correspondente.
+# POR QUÊ NÃO chmod 666: o socket é bind-mount; mudar perm pode afetar o host.
+if [ -S /var/run/docker.sock ]; then
+  SOCK_GID="$(stat -c '%g' /var/run/docker.sock)"
+  if [ "${SOCK_GID}" = "0" ]; then
+    # Socket pertence ao root (caso comum no Docker Desktop). Coloca appuser no grupo root.
+    sudo usermod -aG root appuser || true
+  else
+    # Cria/ajusta grupo "docker" com o mesmo GID do socket e inclui appuser.
+    if getent group docker >/dev/null 2>&1; then
+      CUR_GID="$(getent group docker | cut -d: -f3)"
+      [ "${CUR_GID}" = "${SOCK_GID}" ] || sudo groupmod -g "${SOCK_GID}" docker || true
+    else
+      sudo groupadd -g "${SOCK_GID}" docker || true
+    fi
+    sudo usermod -aG docker appuser || true
+  fi
+  echo "    -> abra um TERMINAL NOVO para o grupo entrar em vigor (ou: 'newgrp docker')."
+else
+  echo "    -> socket Docker não encontrado (docker-outside-of-docker indisponível)."
+fi
+
 echo "==> [post-create] Instalando eksctl..."
 # Detecta a arquitetura para baixar o binário certo (amd64 x arm64).
 ARCH_RAW="$(uname -m)"
