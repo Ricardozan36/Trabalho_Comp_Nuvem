@@ -147,7 +147,7 @@ kubectl get pods -n cloudtask
 ./scripts/build-and-push-ecr.sh        # build --target prod + push para o ECR
 ```
 
-Passo a passo: [`praticas/12-ecr-push.md`](praticas/12-ecr-push.md).
+Passo a passo: [`praticas/11-ecr-push.md`](praticas/11-ecr-push.md).
 
 ### Aula 8 — Deploy no EKS (nuvem)
 
@@ -157,11 +157,11 @@ kubectl apply -k infra/k8s/aws/
 kubectl get svc -n cloudtask           # pega o DNS do Load Balancer
 ```
 
-Passo a passo: [`praticas/13-eks-deploy.md`](praticas/13-eks-deploy.md) e
+Passo a passo: [`praticas/12-eks-deploy.md`](praticas/12-eks-deploy.md) e
 [`infra/k8s/aws/README.md`](../infra/k8s/aws/README.md).
 
 > 🧭 **Semanas 3 e 4 juntas:** como a Semana 3 não teve aula, siga o roteiro
-> combinado [`praticas/14-roteiro-aula-3-e-4.md`](praticas/14-roteiro-aula-3-e-4.md)
+> combinado [`praticas/13-roteiro-aula-3-e-4.md`](praticas/13-roteiro-aula-3-e-4.md)
 > (Kind local → ECR → EKS).
 >
 > 💸 EKS + EC2 + ELB cobram **por hora**. Sempre `kubectl delete -k infra/k8s/aws/`
@@ -176,9 +176,9 @@ Passo a passo: [`praticas/13-eks-deploy.md`](praticas/13-eks-deploy.md) e
 | O que cada aula entrega                       | [`ROADMAP.md`](ROADMAP.md)             |
 | Conceitos de VPC, IAM, segurança (aula 4)     | `conceitos/aws-networking.md`, `conceitos/security-model.md` (a partir da aula 4) |
 | S3, EFS e Data Lake (aula 5)                  | `conceitos/s3-efs-datalake.md` (a partir da aula 5) |
-| Como subir imagem para ECR (aula 7)           | `praticas/12-ecr-push.md` + `scripts/build-and-push-ecr.sh` |
-| Como fazer deploy no EKS (aula 8)             | `praticas/13-eks-deploy.md` + `infra/k8s/aws/README.md` |
-| Roteiro da aula combinada 3+4                 | `praticas/14-roteiro-aula-3-e-4.md`    |
+| Como subir imagem para ECR (aula 7)           | `praticas/11-ecr-push.md` + `scripts/build-and-push-ecr.sh` |
+| Como fazer deploy no EKS (aula 8)             | `praticas/12-eks-deploy.md` + `infra/k8s/aws/README.md` |
+| Roteiro da aula combinada 3+4                 | `praticas/13-roteiro-aula-3-e-4.md`    |
 | Custos AWS (aula 9)                           | `cost-explorer.md`, `aws-pricing-notes.md` |
 | Checklist LGPD e entrega final (aula 12)      | `lgpd-checklist.md`, `deployment-checklist.md` |
 

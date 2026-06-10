@@ -57,7 +57,7 @@ LoadBalancer**.
 > 📌 **Aula combinada Semanas 3 + 4.** Como a Semana 3 não teve aula, os
 > experimentos das duas semanas são feitos juntos: primeiro o Kubernetes
 > **local (Kind)** da Semana 3, depois **ECR + EKS** na nuvem da Semana 4.
-> Roteiro: [`docs/praticas/14-roteiro-aula-3-e-4.md`](https://github.com/N-CPUninter/Computa-o-em-Nuvem---Projeto-exemplo-CloudTask-AI-SaaS/blob/main/docs/praticas/14-roteiro-aula-3-e-4.md).
+> Roteiro: [`docs/praticas/13-roteiro-aula-3-e-4.md`](https://github.com/N-CPUninter/Computa-o-em-Nuvem---Projeto-exemplo-CloudTask-AI-SaaS/blob/main/docs/praticas/13-roteiro-aula-3-e-4.md).
 
 ### Status do projeto
 

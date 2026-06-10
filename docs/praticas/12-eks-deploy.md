@@ -1,8 +1,8 @@
-# Prática 13 — Deploy no Amazon EKS (Aula 8)
+# Prática 12 — Deploy no Amazon EKS (Aula 8)
 
 > **Objetivo:** rodar a CloudTask num **cluster Kubernetes gerenciado (EKS)**,
-> com a imagem vinda do **ECR** (Prática 12) e exposição pública via **Service
-> LoadBalancer**. É o "Kind da Prática 11, mas na nuvem".
+> com a imagem vinda do **ECR** (Prática 11) e exposição pública via **Service
+> LoadBalancer**. É o "Kind da Prática 10, mas na nuvem".
 >
 > **Quando:** Semana 4 / Aula 8.
 > **Tempo:** 40–60 min.
@@ -10,7 +10,7 @@
 > Esta é a semana mais cara. **Destrua tudo na mesma sessão.**
 >
 > **Pré-req:**
-> - Prática 12 feita (imagem no ECR).
+> - Prática 11 feita (imagem no ECR).
 > - `kubectl` (vem no devcontainer) + **AWS CLI v2** configurada.
 > - Um **cluster EKS**: criado pelo professor (recomendado no Learner Lab) ou
 >   por você com `eksctl` usando a `LabRole`.
@@ -20,7 +20,7 @@
 
 ## 0. Por que EKS (e o que muda do Kind)
 
-| Kind (Prática 11, local) | EKS (aqui, nuvem) |
+| Kind (Prática 10, local) | EKS (aqui, nuvem) |
 | --- | --- |
 | Nós = containers Docker no seu PC | Nós = **instâncias EC2** da AWS |
 | Imagem `cloudtask-api:dev` carregada com `kind load` | Imagem **puxada do ECR** |
@@ -197,7 +197,7 @@ mostra como seria — **não aplique no lab**. Conceito: [`../conceitos/https-tl
 
 ---
 
-## 10. O que mudou em relação ao Kind (Prática 11)
+## 10. O que mudou em relação ao Kind (Prática 10)
 
 | Kind (Aula 6) | EKS (Aula 8) |
 | --- | --- |
@@ -213,5 +213,5 @@ mostra como seria — **não aplique no lab**. Conceito: [`../conceitos/https-tl
 | Quero... | Vá em |
 | --- | --- |
 | Escalar com HPA + ver custos | Semana 5 — [`../ROADMAP.md`](../ROADMAP.md) (Aula 9) |
-| Revisar a aula combinada 3+4 | [`14-roteiro-aula-3-e-4.md`](14-roteiro-aula-3-e-4.md) |
+| Revisar a aula combinada 3+4 | [`13-roteiro-aula-3-e-4.md`](13-roteiro-aula-3-e-4.md) |
 | Trocar Postgres-Pod por RDS | [`09-deploy-manual-aws.md`](09-deploy-manual-aws.md) §7 |

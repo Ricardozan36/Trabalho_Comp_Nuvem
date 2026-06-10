@@ -1,8 +1,8 @@
-# Prática 12 — Publicar a imagem no Amazon ECR (Aula 7)
+# Prática 11 — Publicar a imagem no Amazon ECR (Aula 7)
 
 > **Objetivo:** levar a imagem Docker da CloudTask **da sua máquina para a
 > nuvem**, num registry privado da AWS — o **Amazon ECR** —, de onde o EKS
-> (Prática 13) vai puxá-la.
+> (Prática 12) vai puxá-la.
 >
 > **Quando:** Semana 4 / Aula 7.
 > **Tempo:** 20–30 min.
@@ -138,6 +138,6 @@ Anote a URI da imagem — você vai colá-la no Deployment do EKS:
 
 | Quero... | Vá em |
 | --- | --- |
-| Rodar essa imagem no EKS | [`13-eks-deploy.md`](13-eks-deploy.md) |
-| Ver a aula 3+4 do começo ao fim | [`14-roteiro-aula-3-e-4.md`](14-roteiro-aula-3-e-4.md) |
+| Rodar essa imagem no EKS | [`12-eks-deploy.md`](12-eks-deploy.md) |
+| Ver a aula 3+4 do começo ao fim | [`13-roteiro-aula-3-e-4.md`](13-roteiro-aula-3-e-4.md) |
 | Comparar ECR x Docker Hub, ECS x EKS | [`../conceitos/infra-aws-minima-por-semana.md`](../conceitos/infra-aws-minima-por-semana.md) |

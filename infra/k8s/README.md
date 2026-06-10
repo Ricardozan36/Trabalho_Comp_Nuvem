@@ -2,7 +2,7 @@
 
 Manifests do **cluster Kubernetes local com Kind** para a Aula 6 da Semana 3.
 
-> **Roteiro completo passo a passo:** [`docs/praticas/11-kubernetes-kind-local.md`](../../docs/praticas/11-kubernetes-kind-local.md).
+> **Roteiro completo passo a passo:** [`docs/praticas/10-kubernetes-kind-local.md`](../../docs/praticas/10-kubernetes-kind-local.md).
 > Este README é só o índice dos arquivos + ordem de aplicação.
 
 ---

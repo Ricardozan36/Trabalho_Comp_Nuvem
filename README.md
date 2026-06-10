@@ -55,7 +55,7 @@ Esta branch contém **as duas aulas da Semana 3**. Abaixo, o que cada aula entre
   - `api-deployment.yaml` — 2 réplicas da API, init container espera Postgres, probes HTTP.
   - `api-service.yaml` — NodePort `30080`.
   - `kustomization.yaml` — `kubectl apply -k infra/k8s/` aplica tudo.
-- Roteiro passo a passo: [`docs/praticas/11-kubernetes-kind-local.md`](docs/praticas/11-kubernetes-kind-local.md).
+- Roteiro passo a passo: [`docs/praticas/10-kubernetes-kind-local.md`](docs/praticas/10-kubernetes-kind-local.md).
 - **Kind roda no HOST** (não no devcontainer). `kubectl` funciona dos dois lados.
 
 Versão da API ao fim da semana: **`0.3.0`**.
@@ -150,7 +150,7 @@ credenciais reais ou LocalStack); validar manualmente.
 - Lista de tarefas: [`docs/TAREFAS.md`](docs/TAREFAS.md)
 - Setup do zero: [`docs/praticas/00-setup-inicial-e-aws-academy.md`](docs/praticas/00-setup-inicial-e-aws-academy.md)
 - **S3 explicado**: [`docs/conceitos/s3-efs-datalake.md`](docs/conceitos/s3-efs-datalake.md)
-- **Kubernetes Kind**: [`docs/praticas/11-kubernetes-kind-local.md`](docs/praticas/11-kubernetes-kind-local.md) + manifests em `infra/k8s/`
+- **Kubernetes Kind**: [`docs/praticas/10-kubernetes-kind-local.md`](docs/praticas/10-kubernetes-kind-local.md) + manifests em `infra/k8s/`
 - **Stack AWS por semana** (custos, Postgres container × RDS, ECS × EKS): [`docs/conceitos/infra-aws-minima-por-semana.md`](docs/conceitos/infra-aws-minima-por-semana.md)
 - **Deploy manual AWS** (ECR, Fargate, EKS, RDS, Secrets Manager): [`docs/praticas/09-deploy-manual-aws.md`](docs/praticas/09-deploy-manual-aws.md)
 - Segurança: [`docs/conceitos/security-model.md`](docs/conceitos/security-model.md) · [`docs/conceitos/aws-networking.md`](docs/conceitos/aws-networking.md) · [`docs/conceitos/https-tls.md`](docs/conceitos/https-tls.md)

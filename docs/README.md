@@ -46,10 +46,10 @@ Tutoriais com comandos. Cada arquivo é um exercício prático que você pode (e
 | [`praticas/07-rodar-testes.md`](praticas/07-rodar-testes.md) | Rodar `pytest` no devcontainer e em container isolado |
 | [`praticas/08-debug-vscode.md`](praticas/08-debug-vscode.md) | Depurar com breakpoints no VS Code (debugpy attach) |
 | [`praticas/09-deploy-manual-aws.md`](praticas/09-deploy-manual-aws.md) | Deploy manual AWS: ECR, ECS Fargate, EKS, RDS, Secrets Manager, DynamoDB (por semana) |
-| [`praticas/11-kubernetes-kind-local.md`](praticas/11-kubernetes-kind-local.md) | Aula 6: cluster Kind local + manifests `infra/k8s/` (Postgres pod + API 2 réplicas + NodePort + demo perda de dados) |
-| [`praticas/12-ecr-push.md`](praticas/12-ecr-push.md) | Aula 7: build `--target prod` + push da imagem para o Amazon ECR (com `scripts/build-and-push-ecr.sh`) |
-| [`praticas/13-eks-deploy.md`](praticas/13-eks-deploy.md) | Aula 8: deploy no Amazon EKS (imagem do ECR + Service LoadBalancer) e **destruir** para não queimar crédito |
-| [`praticas/14-roteiro-aula-3-e-4.md`](praticas/14-roteiro-aula-3-e-4.md) | 🧭 **Roteiro da aula combinada Semanas 3+4** (Kind local → ECR → EKS), com os testes de cada etapa |
+| [`praticas/10-kubernetes-kind-local.md`](praticas/10-kubernetes-kind-local.md) | Aula 6: cluster Kind local + manifests `infra/k8s/` (Postgres pod + API 2 réplicas + NodePort + demo perda de dados) |
+| [`praticas/11-ecr-push.md`](praticas/11-ecr-push.md) | Aula 7: build `--target prod` + push da imagem para o Amazon ECR (com `scripts/build-and-push-ecr.sh`) |
+| [`praticas/12-eks-deploy.md`](praticas/12-eks-deploy.md) | Aula 8: deploy no Amazon EKS (imagem do ECR + Service LoadBalancer) e **destruir** para não queimar crédito |
+| [`praticas/13-roteiro-aula-3-e-4.md`](praticas/13-roteiro-aula-3-e-4.md) | 🧭 **Roteiro da aula combinada Semanas 3+4** (Kind local → ECR → EKS), com os testes de cada etapa |
 | [`praticas/99-troubleshooting.md`](praticas/99-troubleshooting.md) | Erros comuns + como resolver |
 
 > 💡 **Os práticos não dependem todos uns dos outros.** Mas se está perdido,
@@ -95,13 +95,13 @@ docs/
     ├── 07-rodar-testes.md
     ├── 08-debug-vscode.md
     ├── 09-deploy-manual-aws.md
-    ├── 11-kubernetes-kind-local.md     ← Semana 3 (Kind local)
-    ├── 12-ecr-push.md                  ← Semana 4 (ECR)
-    ├── 13-eks-deploy.md                ← Semana 4 (EKS)
-    ├── 14-roteiro-aula-3-e-4.md        ← roteiro combinado 3+4
+    ├── 10-kubernetes-kind-local.md     ← Semana 3 (Kind local)
+    ├── 11-ecr-push.md                  ← Semana 4 (ECR)
+    ├── 12-eks-deploy.md                ← Semana 4 (EKS)
+    ├── 13-roteiro-aula-3-e-4.md        ← roteiro combinado 3+4
     └── 99-troubleshooting.md
 ```
 
 > 🧭 **Semanas 3 e 4 são dadas juntas** (a Semana 3 não teve aula). Comece
-> pela [`praticas/14-roteiro-aula-3-e-4.md`](praticas/14-roteiro-aula-3-e-4.md),
+> pela [`praticas/13-roteiro-aula-3-e-4.md`](praticas/13-roteiro-aula-3-e-4.md),
 > que encadeia Kind local → ECR → EKS com os testes de cada etapa.

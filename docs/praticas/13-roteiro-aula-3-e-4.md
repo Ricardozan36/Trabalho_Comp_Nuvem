@@ -1,4 +1,4 @@
-# Prática 14 — Roteiro da aula combinada: Semanas 3 + 4
+# Prática 13 — Roteiro da aula combinada: Semanas 3 + 4
 
 > **Por que combinada?** A **Semana 3 não teve aula**. Então fazemos os
 > experimentos e testes das **duas semanas numa só sessão**, seguindo a
@@ -29,10 +29,10 @@ em cada checkpoint.
 | --- | --- | --- | --- |
 | **A — Semana 3 (local)** | A1. Uploads S3/local | [`05`](05-uploads-modo-local.md) + [`06`](06-uploads-modo-s3.md) | $0 / centavos |
 | | A2. Testes automatizados | [`07`](07-rodar-testes.md) | $0 |
-| | A3. Kubernetes local (Kind) | [`11`](11-kubernetes-kind-local.md) | $0 |
-| **B — Semana 4 (nuvem)** | B1. Imagem no ECR | [`12`](12-ecr-push.md) | centavos |
-| | B2. Deploy no EKS | [`13`](13-eks-deploy.md) | 💸 por hora |
-| | B3. Destruir tudo | [`13`](13-eks-deploy.md) §7 | — |
+| | A3. Kubernetes local (Kind) | [`10`](10-kubernetes-kind-local.md) | $0 |
+| **B — Semana 4 (nuvem)** | B1. Imagem no ECR | [`11`](11-ecr-push.md) | centavos |
+| | B2. Deploy no EKS | [`12`](12-eks-deploy.md) | 💸 por hora |
+| | B3. Destruir tudo | [`12`](12-eks-deploy.md) §7 | — |
 
 > 💡 **Regra de ouro de custo:** a Parte A é toda gratuita/local. Só entre na
 > Parte B (nuvem) quando a Parte A estiver funcionando — e **destrua** ao fim.
@@ -82,7 +82,7 @@ crédito.
 
 ## A3. Kubernetes LOCAL com Kind
 
-**Faça:** [`11-kubernetes-kind-local.md`](11-kubernetes-kind-local.md) (completo).
+**Faça:** [`10-kubernetes-kind-local.md`](10-kubernetes-kind-local.md) (completo).
 
 **Sequência mínima (do HOST):**
 
@@ -105,9 +105,9 @@ curl -X POST http://localhost:30080/tasks \
 ```
 
 **Experimentos-chave (faça os dois — são o coração da Semana 3):**
-1. **Rolling update** (Prática 11 §8): mude o ConfigMap, `kubectl rollout
+1. **Rolling update** (Prática 10 §8): mude o ConfigMap, `kubectl rollout
    restart`, veja zero downtime.
-2. **Perda de dados** (Prática 11 §9): mate o Pod do Postgres e veja as tarefas
+2. **Perda de dados** (Prática 10 §9): mate o Pod do Postgres e veja as tarefas
    sumirem (`emptyDir` sem volume). Lição que se repete no EKS.
 
 ✅ **Checkpoint A3:** 2 réplicas da API `Running`, Service balanceando,
@@ -130,7 +130,7 @@ kubectl get nodes               # se já tiver cluster EKS conectado
 
 ## B1. Publicar a imagem no ECR
 
-**Faça:** [`12-ecr-push.md`](12-ecr-push.md).
+**Faça:** [`11-ecr-push.md`](11-ecr-push.md).
 
 ```bash
 ./scripts/build-and-push-ecr.sh
@@ -145,7 +145,7 @@ aws ecr list-images --repository-name cloudtask-api --output table
 
 ## B2. Deploy no EKS
 
-**Faça:** [`13-eks-deploy.md`](13-eks-deploy.md).
+**Faça:** [`12-eks-deploy.md`](12-eks-deploy.md).
 
 ```bash
 aws eks update-kubeconfig --name <cluster> --region us-east-1
@@ -172,7 +172,7 @@ O `EXTERNAL-IP` é um DNS público (não mais `localhost:30080`).
 
 ## B3. 🔥 DESTRUIR (obrigatório)
 
-**Faça:** [`13-eks-deploy.md`](13-eks-deploy.md) §7.
+**Faça:** [`12-eks-deploy.md`](12-eks-deploy.md) §7.
 
 ```bash
 kubectl delete -k infra/k8s/aws/         # apaga app + ELB
@@ -208,7 +208,7 @@ ELB em *EC2 → Load Balancers*. Crédito preservado.
 
 | Sintoma | Vá em |
 | --- | --- |
-| Erro no Kind / NodePort | [`11`](11-kubernetes-kind-local.md) §11 |
-| Erro no push do ECR | [`12`](12-ecr-push.md) §5 |
-| Erro no EKS / ELB pending | [`13`](13-eks-deploy.md) §9 |
+| Erro no Kind / NodePort | [`10`](10-kubernetes-kind-local.md) §11 |
+| Erro no push do ECR | [`11`](11-ecr-push.md) §5 |
+| Erro no EKS / ELB pending | [`12`](12-eks-deploy.md) §9 |
 | Problemas gerais | [`99-troubleshooting.md`](99-troubleshooting.md) |
