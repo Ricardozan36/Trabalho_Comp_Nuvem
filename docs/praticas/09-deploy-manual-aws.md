@@ -124,10 +124,24 @@ phases:
       - docker tag cloudtask-api:$IMAGE_TAG $ECR_REPO_URI:latest
   post_build:
     commands:
+      # O CodeBuild roda post_build mesmo se o build falhar. Sem este guard,
+      # um build quebrado tenta o push e gera "image does not exist locally".
+      - |
+        if [ "$CODEBUILD_BUILD_SUCCEEDING" = "0" ]; then
+          echo "Build falhou — pulando push para o ECR."
+          exit 1
+        fi
       - echo "Push para ECR..."
       - docker push $ECR_REPO_URI:$IMAGE_TAG
       - docker push $ECR_REPO_URI:latest
 ```
+
+> 💡 **Imagem base via mirror ECR Public:** o `Dockerfile` usa
+> `public.ecr.aws/docker/library/python:3.11-slim` (mirror oficial do Docker
+> Hub na AWS) em vez de `python:3.11-slim`. No CodeBuild os IPs são
+> compartilhados e o pull anônimo do Docker Hub estoura o **rate limit**
+> (`429 Too Many Requests`); o mirror da AWS não tem esse limite e dispensa
+> login.
 
 Commitar e empurrar.
 

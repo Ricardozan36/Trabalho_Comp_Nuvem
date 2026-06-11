@@ -18,7 +18,7 @@
 # para instalar pacotes Python que precisam compilar dependências nativas
 # (ex.: psycopg2, cryptography).
 # -----------------------------------------------------------------------------
-FROM python:3.11-slim AS builder
+FROM public.ecr.aws/docker/library/python:3.11-slim AS builder
 
 # Pasta-padrão dentro do container.
 WORKDIR /build
@@ -48,7 +48,7 @@ RUN pip install --no-cache-dir --user -r requirements.txt
 # -----------------------------------------------------------------------------
 # Imagem final fica enxuta: só Python + nosso código + libs já instaladas.
 # -----------------------------------------------------------------------------
-FROM python:3.11-slim AS runtime
+FROM public.ecr.aws/docker/library/python:3.11-slim AS runtime
 
 # ----- variáveis de ambiente úteis ao Python ---------------------------------
 # PYTHONDONTWRITEBYTECODE=1 → não cria arquivos .pyc no container.

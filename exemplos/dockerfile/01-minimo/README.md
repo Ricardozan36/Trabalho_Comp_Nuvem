@@ -4,7 +4,7 @@ A versão **mais curta possível** que ainda é funcional. Cada linha tem exatam
 
 | Linha                    | Função                                                     |
 | ------------------------ | ---------------------------------------------------------- |
-| `FROM python:3.11-slim`  | Imagem base enxuta com Python pré-instalado.               |
+| `FROM public.ecr.aws/docker/library/python:3.11-slim`  | Imagem base enxuta com Python pré-instalado.               |
 | `WORKDIR /app`           | Define `/app` como pasta de trabalho dentro do container.  |
 | `COPY requirements.txt .`| Copia só o arquivo de dependências primeiro.               |
 | `RUN pip install ...`    | Instala as dependências (sem cache do pip).                |

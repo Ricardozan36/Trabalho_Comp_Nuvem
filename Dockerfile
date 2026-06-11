@@ -15,7 +15,7 @@
 
 
 # ---------- Estágio comum: runtime mínimo ----------------------------------
-FROM python:3.11-slim AS base
+FROM public.ecr.aws/docker/library/python:3.11-slim AS base
 
 # Variáveis úteis ao Python rodando em container.
 # PYTHONDONTWRITEBYTECODE → não cria .pyc dentro do container.
