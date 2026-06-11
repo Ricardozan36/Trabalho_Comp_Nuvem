@@ -270,6 +270,8 @@ aws iam attach-role-policy --role-name codebuild-cloudtask-role \
 
 # 3. criar o projeto apontando direto para o GitHub
 #    (troque SEU_USUARIO/SEU_REPO; privilegedMode=true libera docker build)
+#    Se der "Invalid service role": a role do passo 1 ainda nao propagou no
+#    IAM. Aguarde ~1 min e repita ESTE comando (nao recrie a role).
 aws codebuild create-project \
   --name cloudtask-api \
   --source "type=GITHUB,location=https://github.com/SEU_USUARIO/SEU_REPO.git,buildspec=buildspec.yml" \
@@ -313,6 +315,8 @@ aws iam attach-role-policy --role-name codebuild-cloudtask-role `
 
 # 3. criar o projeto apontando direto para o GitHub
 #    (troque SEU_USUARIO/SEU_REPO; privilegedMode=true libera docker build)
+#    Se der "Invalid service role": a role do passo 1 ainda nao propagou no
+#    IAM. Aguarde ~1 min e repita ESTE comando (nao recrie a role).
 aws codebuild create-project `
   --name cloudtask-api `
   --source "type=GITHUB,location=https://github.com/SEU_USUARIO/SEU_REPO.git,buildspec=buildspec.yml" `
@@ -330,6 +334,11 @@ aws codebuild create-webhook `
   --filter-groups $filters
 ```
 
+> ⚠️ **`Invalid service role` no `create-project`?** A role recém-criada
+> ainda não **propagou** no IAM (eventual consistency) — o CodeBuild valida
+> o trust `sts:AssumeRole` e não a encontra. **Aguarde ~1 min e repita o
+> mesmo comando** (a ARN e o trust já estão corretos). Não recrie a role.
+>
 > 💡 A env var `ECR_REPO_URI` já aponta para o repositório da §3 — **crie o
 > repo ECR ([§3.1](#31-criar-o-repositório-ecr--descobrir-o-acct)) antes do
 > primeiro build**, senão o `docker push` falha.
