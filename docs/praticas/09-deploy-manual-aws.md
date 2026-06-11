@@ -292,7 +292,7 @@ aws codebuild create-project \
   --source-version semana-04-eks-aws \
   --artifacts type=NO_ARTIFACTS \
   --environment "type=LINUX_CONTAINER,image=aws/codebuild/standard:7.0,computeType=BUILD_GENERAL1_SMALL,privilegedMode=true,environmentVariables=[{name=AWS_REGION,value=us-east-1},{name=ECR_REPO_URI,value=$ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/cloudtask-api}]" \
-  --service-role arn:aws:iam::$ACCOUNT_ID:role/codebuild-cloudtask-role
+  --service-role arn:aws:iam::${ACCOUNT_ID}:role/codebuild-cloudtask-role
 
 # 4. (opcional) webhook: dispara build automático a cada git push na branch
 aws codebuild create-webhook \
@@ -348,10 +348,12 @@ aws codebuild create-webhook `
   --filter-groups $filters
 ```
 
-> ⚠️ **`Invalid service role` no `create-project`?** A role recém-criada
-> ainda não **propagou** no IAM (eventual consistency) — o CodeBuild valida
-> o trust `sts:AssumeRole` e não a encontra. **Aguarde ~1 min e repita o
-> mesmo comando** (a ARN e o trust já estão corretos). Não recrie a role.
+> ⚠️ **`Invalid service role` no `create-project`?** Duas causas:
+> 1. **zsh comeu a ARN** — `$ACCOUNT_ID:role/...` em zsh vira
+>    `...<id>ole/...` (o `:r` é modificador). Por isso a ARN usa
+>    `${ACCOUNT_ID}` com chaves. Se persiste **mesmo após esperar**, é isto.
+> 2. **Propagação IAM** — role recém-criada ainda não propagou. **Aguarde
+>    ~1 min e repita** (a role está correta). Não recrie a role.
 >
 > 💡 A env var `ECR_REPO_URI` já aponta para o repositório da §3 — **crie o
 > repo ECR ([§3.1](#31-criar-o-repositório-ecr--descobrir-o-acct)) antes do
@@ -607,12 +609,16 @@ Na conta própria não existe `LabRole`: você cria a **task execution role**
 (deixa o Fargate puxar do ECR e mandar logs). O resto é cluster → task
 definition → rede → service.
 
-> ⚠️ **Não rode tudo de uma vez.** A role do passo 1 leva alguns segundos
-> para **propagar** no IAM; se o passo 3 (`register-task-definition`) rodar
-> antes, falha com `ClientException: Role is not valid` — e aí o resto cai em
-> cascata (`TaskDefinition not found`, `Service not found`). Rode os passos
-> 1–2, **espere ~15 s**, depois siga do passo 3. Se já caiu, repita só a
-> partir do passo 3 — cluster e role já existem.
+> ⚠️ **`Role is not valid` no `register-task-definition`?** Duas causas (a #1
+> derruba o resto em cascata: `TaskDefinition not found`, `Service not found`):
+> 1. **zsh comeu a ARN no heredoc** — `$ACCOUNT_ID:role/...` em zsh vira
+>    `...<id>ole/...` (o `:r` é modificador, igual ao `:l` do `:latest`). Por
+>    isso o JSON usa `${ACCOUNT_ID}` e `${ECR}` com chaves. Confira com
+>    `grep executionRoleArn /tmp/fargate-taskdef.json` — se aparecer `ole/`, é
+>    isto: regere o arquivo (passo 3) e siga.
+> 2. **Propagação IAM** — role do passo 1 ainda não propagou. Espere ~15 s.
+>
+> Se já caiu, repita só a partir do passo 3 — cluster e role já existem.
 ```bash
 # 0. pre-req: imagem ja no ECR (§3); ACCOUNT_ID e URI
 export ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
@@ -635,10 +641,10 @@ cat > /tmp/fargate-taskdef.json <<JSON
   "networkMode": "awsvpc",
   "cpu": "256",
   "memory": "512",
-  "executionRoleArn": "arn:aws:iam::$ACCOUNT_ID:role/ecsTaskExecutionRole",
+  "executionRoleArn": "arn:aws:iam::${ACCOUNT_ID}:role/ecsTaskExecutionRole",
   "containerDefinitions": [{
     "name": "api",
-    "image": "$ECR:latest",
+    "image": "${ECR}:latest",
     "essential": true,
     "portMappings": [{"containerPort": 8000, "protocol": "tcp"}],
     "environment": [
@@ -655,10 +661,16 @@ export VPC_ID=$(aws ec2 describe-vpcs --filters Name=isDefault,Values=true \
   --query 'Vpcs[0].VpcId' --output text)
 export SUBNET_ID=$(aws ec2 describe-subnets --filters Name=vpc-id,Values=$VPC_ID \
   --query 'Subnets[0].SubnetId' --output text)
+# cria o SG; se ja existir (re-run), reaproveita o ID existente
 export SG_ID=$(aws ec2 create-security-group --group-name cloudtask-fargate-sg \
-  --description "ECS Fargate 8000" --vpc-id $VPC_ID --query 'GroupId' --output text)
+  --description "ECS Fargate 8000" --vpc-id $VPC_ID --query 'GroupId' --output text 2>/dev/null) \
+  || export SG_ID=$(aws ec2 describe-security-groups \
+       --filters Name=group-name,Values=cloudtask-fargate-sg Name=vpc-id,Values=$VPC_ID \
+       --query 'SecurityGroups[0].GroupId' --output text)
+echo "SG_ID=$SG_ID"
+# regra 8000 (|| true: ignora se a regra ja existir)
 aws ec2 authorize-security-group-ingress --group-id $SG_ID \
-  --protocol tcp --port 8000 --cidr 0.0.0.0/0
+  --protocol tcp --port 8000 --cidr 0.0.0.0/0 2>/dev/null || true
 
 # 5. servico (1 task, IP publico para testar sem LB)
 aws ecs create-service --cluster cloudtask-fargate --service-name cloudtask-api \
@@ -719,10 +731,18 @@ $env:VPC_ID = aws ec2 describe-vpcs --filters Name=isDefault,Values=true `
   --query 'Vpcs[0].VpcId' --output text
 $env:SUBNET_ID = aws ec2 describe-subnets --filters Name=vpc-id,Values=$env:VPC_ID `
   --query 'Subnets[0].SubnetId' --output text
+# cria o SG; se ja existir (re-run), reaproveita o ID existente
 $env:SG_ID = aws ec2 create-security-group --group-name cloudtask-fargate-sg `
-  --description "ECS Fargate 8000" --vpc-id $env:VPC_ID --query 'GroupId' --output text
+  --description "ECS Fargate 8000" --vpc-id $env:VPC_ID --query 'GroupId' --output text 2>$null
+if (-not $env:SG_ID) {
+  $env:SG_ID = aws ec2 describe-security-groups `
+    --filters Name=group-name,Values=cloudtask-fargate-sg Name=vpc-id,Values=$env:VPC_ID `
+    --query 'SecurityGroups[0].GroupId' --output text
+}
+echo "SG_ID=$env:SG_ID"
+# regra 8000 (ignora se a regra ja existir)
 aws ec2 authorize-security-group-ingress --group-id $env:SG_ID `
-  --protocol tcp --port 8000 --cidr 0.0.0.0/0
+  --protocol tcp --port 8000 --cidr 0.0.0.0/0 2>$null
 
 # 5. servico (1 task, IP publico para testar sem LB)
 aws ecs create-service --cluster cloudtask-fargate --service-name cloudtask-api `
