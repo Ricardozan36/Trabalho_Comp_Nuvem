@@ -661,12 +661,16 @@ export VPC_ID=$(aws ec2 describe-vpcs --filters Name=isDefault,Values=true \
   --query 'Vpcs[0].VpcId' --output text)
 export SUBNET_ID=$(aws ec2 describe-subnets --filters Name=vpc-id,Values=$VPC_ID \
   --query 'Subnets[0].SubnetId' --output text)
-# cria o SG; se ja existir (re-run), reaproveita o ID existente
-export SG_ID=$(aws ec2 create-security-group --group-name cloudtask-fargate-sg \
-  --description "ECS Fargate 8000" --vpc-id $VPC_ID --query 'GroupId' --output text 2>/dev/null) \
-  || export SG_ID=$(aws ec2 describe-security-groups \
-       --filters Name=group-name,Values=cloudtask-fargate-sg Name=vpc-id,Values=$VPC_ID \
-       --query 'SecurityGroups[0].GroupId' --output text)
+# cria o SG; se ja existir (re-run), reaproveita o ID existente.
+# Atribui SEM export (export sempre retorna 0 e mascararia a falha do $(...)).
+SG_ID=$(aws ec2 create-security-group --group-name cloudtask-fargate-sg \
+  --description "ECS Fargate 8000" --vpc-id $VPC_ID --query 'GroupId' --output text 2>/dev/null)
+if [ -z "$SG_ID" ]; then
+  SG_ID=$(aws ec2 describe-security-groups \
+    --filters Name=group-name,Values=cloudtask-fargate-sg Name=vpc-id,Values=$VPC_ID \
+    --query 'SecurityGroups[0].GroupId' --output text)
+fi
+export SG_ID
 echo "SG_ID=$SG_ID"
 # regra 8000 (|| true: ignora se a regra ja existir)
 aws ec2 authorize-security-group-ingress --group-id $SG_ID \
