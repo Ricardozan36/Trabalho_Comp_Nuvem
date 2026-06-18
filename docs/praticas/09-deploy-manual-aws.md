@@ -848,14 +848,14 @@ restart → constatar que sumiram → concluir que produção pede **RDS**
 ##### Arquitetura
 
 ```text
-   ┌──────────────────────────────────────────┐
-   │        ECS Fargate Task (1 task)          │
-   │  ┌──────────────┐      ┌───────────────┐  │
-   │  │ api          │◄────►│ db (postgres) │  │
-   │  │ uvicorn:8000 │      │ :5432         │  │
-   │  └──────────────┘      └───────────────┘  │
-   │   2 containers / 1 task → falam via localhost
-   └──────────────────────────────────────────┘
+   ┌───────────────────────────────────────────────┐
+   │        ECS Fargate Task (1 task)              │
+   │  ┌──────────────┐      ┌───────────────┐      │
+   │  │ api          │◄────►│ db (postgres) │      │
+   │  │ uvicorn:8000 │      │ :5432         │      │
+   │  └──────────────┘      └───────────────┘      │
+   │   2 containers / 1 task → falam via localhost │
+   └───────────────────────────────────────────────┘
                   │ Public IP :8000
                   ▼ usuário
 ```
