@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CloudTask AI - Login</title>
+    <style>
+        /* Fundo principal em um tom grafite/chumbo escuro */
+        body {
+            background-color: #121214; 
+            color: #e1e1e6;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        /* Card com bordas mais sutis e um detalhe superior colorido */
+        .login-card {
+            background-color: #202024;
+            padding: 40px;
+            border-radius: 8px; 
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            text-align: center;
+            width: 320px;
+            border-top: 4px solid #8257e5; /* Linha de destaque roxa */
+        }
+
+        /* Estilo do título com duas cores */
+        .login-card h1 {
+            color: #e1e1e6;
+            margin-top: 0;
+            margin-bottom: 5px;
+            font-size: 26px;
+            letter-spacing: 1px;
+        }
+
+        .login-card h1 span {
+            color: #8257e5; /* Destaque apenas no 'AI' */
+        }
+
+        .login-card p {
+            color: #a8a8b3;
+            font-size: 14px;
+            margin-bottom: 30px;
+            line-height: 1.5;
+        }
+
+        /* Campos de texto mais quadrados e escuros */
+        input {
+            width: 100%;
+            padding: 12px 14px;
+            margin-bottom: 15px;
+            background-color: #121214;
+            border: 1px solid #323238;
+            border-radius: 4px;
+            color: #c4c4cc;
+            box-sizing: border-box;
+            outline: none;
+            transition: all 0.3s;
+        }
+
+        /* Efeito ao clicar no campo de texto */
+        input:focus {
+            border-color: #8257e5;
+            box-shadow: 0 0 0 1px #8257e5;
+        }
+
+        /* Botão com efeito de clique */
+        button {
+            width: 100%;
+            padding: 14px;
+            background-color: #8257e5;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s;
+            margin-bottom: 20px;
+        }
+
+        button:hover {
+            background-color: #996dff;
+        }
+        
+        button:active {
+            transform: scale(0.98); /* Dá uma leve "afundada" ao clicar */
+        }
+
+        .register-link {
+            color: #a8a8b3;
+            font-size: 14px;
+        }
+
+        .register-link span {
+            color: #8257e5;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        
+        .register-link span:hover {
+            color: #996dff;
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="login-card">
+        <h1>CloudTask <span>AI</span></h1>
+        <p>Sua rotina na nuvem,<br>mais inteligente.</p>
+
+        <input type="email" placeholder="E-mail de acesso" id="emailInput">
+        <input type="password" placeholder="Sua senha" id="senhaInput">
+
+        <button onclick="simularLogin()">Acessar Plataforma</button>
+
+        <div class="register-link">
+            Novo por aqui? <span>Crie sua conta</span>
+        </div>
+    </div>
+
+    <script>
+        function simularLogin() {
+            window.location.href = 'dashboard.html';
+        }
+    </script>
+
+</body>
+</html>
