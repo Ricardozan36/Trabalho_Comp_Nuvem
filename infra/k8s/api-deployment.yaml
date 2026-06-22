@@ -1,26 +1,5 @@
 # =============================================================================
 # api-deployment.yaml — API FastAPI no cluster Kind.
-# -----------------------------------------------------------------------------
-# DECISÕES principais:
-#   * 2 réplicas: didático para ver o Service balanceando entre Pods.
-#   * RollingUpdate: deploy novo levanta Pods novos antes de derrubar os
-#     velhos — zero downtime (com stateless apps como esta).
-#   * Image `cloudtask-api:prod` LOCAL — carregamos no Kind com
-#     `kind load docker-image cloudtask-api:prod`. POR QUÊ não puxar do ECR aqui:
-#     Aula 6 é local. Aula 7 muda para ECR.
-#   * POR QUÊ `prod` e NÃO `dev`: o target `dev` do Dockerfile NÃO embute o
-#     código (`app/`) — ele espera o código montado por VOLUME (devcontainer
-#     faz isso). No cluster não há volume, então `uvicorn app.main:app`
-#     falharia com `ModuleNotFoundError: No module named 'app'` →
-#     CrashLoopBackOff. O target `prod` faz `COPY app/ /app/app/`, então a
-#     imagem é autossuficiente — é o que um cluster precisa.
-#   * `imagePullPolicy: IfNotPresent`: garante que ele USE a imagem carregada
-#     pelo `kind load` em vez de tentar puxar do Docker Hub.
-#   * CMD da imagem prod = uvicorn SEM --reload (sem hot-reload no cluster;
-#     código é imutável, baked na imagem).
-#
-# DATABASE_URL: composta a partir do Secret (user, password) e ConfigMap
-# (host, db). Mostra ao aluno os DOIS objetos em ação.
 # =============================================================================
 apiVersion: apps/v1
 kind: Deployment
@@ -41,10 +20,7 @@ spec:
     metadata:
       labels: { app: api, component: backend }
     spec:
-      # Espera o Postgres responder antes de subir a API (initContainer).
-      # POR QUÊ: a App roda `create_all` no startup; se Postgres ainda não
-      # estiver pronto, o Pod entra em CrashLoopBackOff. O initContainer
-      # bloqueia até o `pg_isready` retornar OK.
+      # InitContainer para garantir que o Postgres esteja aceitando conexões
       initContainers:
         - name: wait-for-postgres
           image: postgres:16-alpine
@@ -63,20 +39,22 @@ spec:
         - name: api
           image: cloudtask-api:prod
           imagePullPolicy: IfNotPresent
+          
+          # REMOVA O SLEEP E USE O COMANDO DA API:
+          command: ["uvicorn"]
+          args: ["app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+          
+          env:
+            - name: PYTHONPATH
+              value: "/app"
+          envFrom:
+            - configMapRef: { name: cloudtask-config }
+            - secretRef: { name: cloudtask-secrets }
           ports:
             - containerPort: 8000
               name: http
-          envFrom:
-            - configMapRef:
-                name: cloudtask-config
-            - secretRef:
-                name: cloudtask-secrets
-
-          # Probes HTTP. POR QUÊ separar liveness e readiness:
-          #   * livenessProbe → "está vivo?"  Se falhar, K8s mata e recria.
-          #   * readinessProbe → "está pronto para receber tráfego?" Falhar
-          #     aqui apenas tira o Pod do Service (não reinicia). Bom para
-          #     warm-up.
+          
+          # Probes de Saúde
           readinessProbe:
             httpGet:
               path: /health/ready
@@ -90,6 +68,7 @@ spec:
             initialDelaySeconds: 15
             periodSeconds: 15
 
+          # Recursos definidos para o container
           resources:
             requests: { cpu: "100m", memory: "128Mi" }
             limits:   { cpu: "500m", memory: "256Mi" }

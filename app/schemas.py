@@ -1,222 +1,44 @@
-"""
-Schemas Pydantic compartilhados por toda a aplicação.
-
-Modelos definidos aqui são usados como ``response_model`` nas rotas
-FastAPI; os ``examples`` declarados via :class:`pydantic.Field` aparecem
-automaticamente no Swagger (``GET /docs``), permitindo que o usuário
-clique em **Try it out** e veja a estrutura esperada.
-
-Em aulas futuras criaremos schemas específicos em ``app/db/schemas.py``
-para os modelos do banco (Task, Event, etc.). Por enquanto, este módulo
-concentra apenas os schemas de uso geral (health, root).
-"""
-
 from __future__ import annotations
-
 from typing import Literal
+from pydantic import BaseModel, ConfigDict, Field, EmailStr
 
-from pydantic import BaseModel, ConfigDict, Field
-
-
+# --- Schemas de Uso Geral ---
 class HealthResponse(BaseModel):
-    """Resposta padrão do endpoint :func:`app.api.routes_health.health`.
-
-    Atributos:
-        status: Sempre ``"ok"`` quando o processo da API está vivo.
-            Em aulas futuras (Aula 3+) criaremos um ``/health/ready`` que
-            poderá retornar outros valores quando o banco estiver fora.
-
-    Example:
-        >>> HealthResponse(status="ok").model_dump()
-        {'status': 'ok'}
-    """
-
-    status: Literal["ok"] = Field(
-        default="ok",
-        description="Estado da aplicação. `ok` indica que o processo está vivo.",
-        examples=["ok"],
-    )
-
-    model_config = ConfigDict(
-        json_schema_extra={
-            "examples": [
-                {"status": "ok"},
-            ]
-        }
-    )
-
+    status: Literal["ok"] = Field(default="ok")
+    model_config = ConfigDict(json_schema_extra={"examples": [{"status": "ok"}]})
 
 class UploadResponse(BaseModel):
-    """Resposta do endpoint :func:`app.api.routes_uploads.create_upload`.
-
-    Atributos:
-        filename: Nome do arquivo armazenado (gerado pelo backend, único).
-        url: Caminho/URL para baixar o arquivo. No modo local é uma rota da
-            própria API (``/uploads/<filename>``); no modo S3 é uma URL
-            pré-assinada com tempo de expiração.
-        storage_mode: Backend que recebeu o arquivo (``local`` ou ``s3``).
-
-    Example:
-        >>> UploadResponse(
-        ...     filename="abcd1234-deadbeef.txt",
-        ...     url="/uploads/abcd1234-deadbeef.txt",
-        ...     storage_mode="local",
-        ... ).model_dump()
-        {'filename': 'abcd1234-deadbeef.txt', 'url': '/uploads/abcd1234-deadbeef.txt', 'storage_mode': 'local'}
-    """
-
-    filename: str = Field(..., examples=["abcd1234-deadbeef.txt"])
-    url: str = Field(..., examples=["/uploads/abcd1234-deadbeef.txt"])
-    storage_mode: Literal["local", "s3"] = Field(..., examples=["local"])
-
-    model_config = ConfigDict(
-        json_schema_extra={
-            "examples": [
-                {
-                    "filename": "abcd1234-deadbeef.txt",
-                    "url": "/uploads/abcd1234-deadbeef.txt",
-                    "storage_mode": "local",
-                }
-            ]
-        }
-    )
-
+    filename: str
+    url: str
+    storage_mode: Literal["local", "s3"]
 
 class DownloadUrlResponse(BaseModel):
-    """Resposta do ``GET /uploads/{filename}?via=url``.
-
-    Em vez de servir os bytes, a API devolve **a URL de download** e deixa o
-    cliente baixar por conta própria. No modo ``s3`` essa URL é **pré-assinada**
-    (temporária); no modo ``local`` é a própria rota da API. É o formato ideal
-    para um frontend: ``fetch`` neste endpoint e depois
-    ``window.location = url`` baixa o arquivo com **um clique** do usuário.
-
-    Atributos:
-        url: URL/caminho para baixar. No S3, link pré-assinado que expira;
-            no local, ``/uploads/<filename>``.
-        expires_in: Segundos até a URL expirar (somente S3). ``None`` no modo
-            local, onde a rota não expira.
-        storage_mode: Backend que guardou o arquivo (``local`` ou ``s3``).
-
-    Example:
-        >>> DownloadUrlResponse(
-        ...     url="/uploads/abcd1234-deadbeef.txt",
-        ...     expires_in=None,
-        ...     storage_mode="local",
-        ... ).model_dump()
-        {'url': '/uploads/abcd1234-deadbeef.txt', 'expires_in': None, 'storage_mode': 'local'}
-    """
-
-    url: str = Field(
-        ...,
-        description="URL de download. No S3 é pré-assinada (expira); no local é a rota da API.",
-        examples=["/uploads/abcd1234-deadbeef.txt"],
-    )
-    expires_in: int | None = Field(
-        default=None,
-        description="Segundos até a URL pré-assinada expirar (apenas S3; `null` no local).",
-        examples=[900],
-    )
-    storage_mode: Literal["local", "s3"] = Field(..., examples=["local"])
-
-    model_config = ConfigDict(
-        json_schema_extra={
-            "examples": [
-                {
-                    "url": "/uploads/abcd1234-deadbeef.txt",
-                    "expires_in": None,
-                    "storage_mode": "local",
-                },
-                {
-                    "url": "https://meu-bucket.s3.amazonaws.com/abcd.txt?X-Amz-Signature=...",
-                    "expires_in": 900,
-                    "storage_mode": "s3",
-                },
-            ]
-        }
-    )
-
+    url: str
+    expires_in: int | None = None
+    storage_mode: Literal["local", "s3"]
 
 class ReadyResponse(BaseModel):
-    """Resposta do endpoint :func:`app.api.routes_health.ready` (readiness).
-
-    Diferente do liveness (``/health``), este endpoint **verifica dependências
-    externas** — nesta aula, a conexão com o PostgreSQL.
-
-    Atributos:
-        status: ``"ready"`` quando tudo OK; ``"not_ready"`` quando alguma
-            dependência falhou.
-        db: estado da conexão com o banco (``"ok"`` ou ``"down"``).
-
-    Example:
-        >>> ReadyResponse(status="ready", db="ok").model_dump()
-        {'status': 'ready', 'db': 'ok'}
-    """
-
-    status: Literal["ready", "not_ready"] = Field(
-        ...,
-        description="`ready` se a app pode receber tráfego; senão `not_ready`.",
-        examples=["ready"],
-    )
-    db: Literal["ok", "down"] = Field(
-        ...,
-        description="Estado da conexão com o PostgreSQL.",
-        examples=["ok"],
-    )
-
-    model_config = ConfigDict(
-        json_schema_extra={
-            "examples": [
-                {"status": "ready", "db": "ok"},
-                {"status": "not_ready", "db": "down"},
-            ]
-        }
-    )
-
+    status: Literal["ready", "not_ready"]
+    db: Literal["ok", "down"]
 
 class RootResponse(BaseModel):
-    """Resposta do endpoint raiz :func:`app.main.root`.
+    name: str
+    version: str
+    docs: str
 
-    Devolve metadados básicos da aplicação para que clientes (humanos ou
-    máquinas) identifiquem o serviço e encontrem rapidamente a documentação
-    interativa.
+# --- Schemas de Usuário e Tarefas ---
+class UserCreate(BaseModel):
+    username: str
+    email: EmailStr
+    password: str = Field(..., min_length=6)
 
-    Atributos:
-        name: Nome legível do serviço.
-        version: Versão semântica corrente (vem de :data:`app.__version__`).
-        docs: Caminho relativo do Swagger UI.
+class TaskCreate(BaseModel):
+    title: str
+    priority: str
 
-    Example:
-        >>> RootResponse(
-        ...     name="CloudTask AI SaaS", version="0.1.0", docs="/docs"
-        ... ).model_dump()
-        {'name': 'CloudTask AI SaaS', 'version': '0.1.0', 'docs': '/docs'}
-    """
+class TaskUpdate(BaseModel):
+    status: str
 
-    name: str = Field(
-        ...,
-        description="Nome legível do serviço.",
-        examples=["CloudTask AI SaaS"],
-    )
-    version: str = Field(
-        ...,
-        description="Versão semântica corrente da aplicação.",
-        examples=["0.1.0"],
-    )
-    docs: str = Field(
-        ...,
-        description="Caminho relativo da interface Swagger UI.",
-        examples=["/docs"],
-    )
-
-    model_config = ConfigDict(
-        json_schema_extra={
-            "examples": [
-                {
-                    "name": "CloudTask AI SaaS",
-                    "version": "0.1.0",
-                    "docs": "/docs",
-                }
-            ]
-        }
-    )
+class TaskEdit(BaseModel):
+    title: str
+    priority: str

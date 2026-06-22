@@ -5,55 +5,35 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CloudTask AI - Dashboard</title>
     <style>
-        :root {
-            --bg-color: #121214;
-            --card-bg: #202024;
-            --primary: #8257e5;
-            --primary-hover: #996dff;
-            --text-main: #e1e1e6;
-            --text-sec: #a8a8b3;
-            --border: #323238;
-            --success: #04d361;
-            --warning: #eba417;
-            --danger: #e83f5b;
-        }
-
+        :root { --bg-color: #121214; --card-bg: #202024; --primary: #8257e5; --primary-hover: #996dff; --text-main: #e1e1e6; --text-sec: #a8a8b3; --border: #323238; --success: #04d361; --warning: #eba417; --danger: #e83f5b; }
         body { background-color: var(--bg-color); color: var(--text-main); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; }
-
         header { display: flex; justify-content: space-between; align-items: center; padding: 20px 40px; background-color: var(--card-bg); border-bottom: 1px solid var(--border); }
         header h2 { margin: 0; color: var(--text-main); }
         header h2 span { color: var(--primary); }
-
         .user-info { display: flex; align-items: center; gap: 15px; }
         .btn-sair { background-color: transparent; color: var(--danger); border: 1px solid var(--danger); padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; transition: all 0.2s; }
         .btn-sair:hover { background-color: var(--danger); color: white; }
-
         main { padding: 30px 40px; max-width: 1200px; margin: 0 auto; }
-
         .summary-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
         .card { background-color: var(--card-bg); padding: 20px; border-radius: 8px; border: 1px solid var(--border); border-left: 4px solid var(--primary); }
         .card h3 { margin: 0 0 10px 0; font-size: 16px; color: var(--text-sec); }
         .card p { margin: 0; font-size: 28px; font-weight: bold; }
-
         .section-box { background-color: var(--card-bg); padding: 25px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 30px; }
         .section-title { margin-top: 0; margin-bottom: 20px; color: var(--primary); font-size: 18px; display: flex; align-items: center; gap: 10px; }
-
         .upload-area { border: 2px dashed var(--border); border-radius: 8px; padding: 40px; text-align: center; color: var(--text-sec); margin-bottom: 20px; cursor: pointer; transition: border-color 0.2s; }
         .upload-area:hover { border-color: var(--primary); }
-
         input, select { padding: 12px; background-color: var(--bg-color); border: 1px solid var(--border); border-radius: 4px; color: var(--text-main); outline: none; }
         .btn-primary { background-color: var(--primary); color: white; border: none; padding: 12px 24px; border-radius: 4px; font-weight: bold; cursor: pointer; }
         .btn-primary:hover { background-color: var(--primary-hover); }
         .btn-warning { background-color: var(--warning); color: white; border: none; padding: 12px 24px; border-radius: 4px; font-weight: bold; cursor: pointer; }
-
         .new-task-form { display: flex; gap: 15px; align-items: center; }
         .new-task-form input { flex: 1; }
-
         table { width: 100%; border-collapse: collapse; }
         th, td { padding: 15px; text-align: left; border-bottom: 1px solid var(--border); }
         th { color: var(--text-sec); font-weight: normal; }
         .status-pendente { color: var(--warning); }
         .status-concluida { color: var(--success); }
+        .acoes-container { display: flex; gap: 8px; }
     </style>
 </head>
 <body>
@@ -61,7 +41,7 @@
     <header>
         <h2>CloudTask <span>AI</span></h2>
         <div class="user-info">
-            <span id="userEmail">usuario@uninter.com</span>
+            <span id="userEmail">Carregando...</span>
             <button class="btn-sair" onclick="sair()">Sair</button>
         </div>
     </header>
@@ -104,7 +84,7 @@
                         <th>Tarefa</th>
                         <th>Prioridade</th>
                         <th>Status</th>
-                        <th>Ação</th>
+                        <th>Ações</th>
                     </tr>
                 </thead>
                 <tbody id="tabelaTarefas"></tbody>
@@ -113,16 +93,35 @@
     </main>
 
     <script>
-        const API_URL = 'http://localhost:8000';
+        const API_URL = '';
+
+        // 1. Catraca de Segurança: Verifica o token
+        const token = localStorage.getItem('token');
+        const userEmail = localStorage.getItem('userEmail');
+
+        if (!token) {
+            window.location.href = 'login.html';
+        }
+
+        // 2. Monta o cabeçalho seguro para a API
+        function getAuthHeaders(isUpload = false) {
+            const headers = { 'Authorization': `Bearer ${token}` };
+            if (!isUpload) headers['Content-Type'] = 'application/json';
+            return headers;
+        }
 
         document.addEventListener('DOMContentLoaded', () => {
+            if (userEmail) document.getElementById('userEmail').innerText = userEmail;
             carregarTarefas();
             document.querySelector('.upload-area').addEventListener('click', () => document.getElementById('fileInput').click());
         });
 
         async function carregarTarefas() {
             try {
-                const response = await fetch(`${API_URL}/tasks`);
+                // Envia a chave (Bearer Token) para a API
+                const response = await fetch(`${API_URL}/tasks`, { headers: getAuthHeaders() });
+                if (response.status === 401) return sair(); // Se a API rejeitar, manda pro login
+
                 const tarefas = await response.json();
                 const tabelaBody = document.getElementById('tabelaTarefas');
                 tabelaBody.innerHTML = '';
@@ -131,22 +130,24 @@
                 tarefas.forEach(tarefa => {
                     const linha = document.createElement('tr');
                     
-                    // Lógica para definir status e botão correspondente
                     const isDone = tarefa.status === 'done';
                     const statusTxt = isDone ? '✅ Concluída' : '⏳ Pendente';
                     const statusClass = isDone ? 'status-concluida' : 'status-pendente';
                     
-                    // Define o botão baseado no estado
                     const botaoAcao = isDone 
                         ? `<button class="btn-primary" style="padding: 5px 10px; background-color: var(--warning);" onclick="alterarStatus(${tarefa.id}, 'pending')">Reabrir</button>`
                         : `<button class="btn-primary" style="padding: 5px 10px;" onclick="alterarStatus(${tarefa.id}, 'done')">Concluir</button>`;
+
+                    const titleSafe = tarefa.title.replace(/'/g, "\\'");
+                    const botaoEditar = `<button class="btn-primary" style="padding: 5px 10px; background-color: #3b82f6;" onclick="editarTarefa(${tarefa.id}, '${titleSafe}', '${tarefa.priority}')">✏️</button>`;
+                    const botaoExcluir = `<button class="btn-primary" style="padding: 5px 10px; background-color: var(--danger);" onclick="excluirTarefa(${tarefa.id})">🗑️</button>`;
 
                     linha.innerHTML = `
                         <td>${tarefa.id}</td>
                         <td>${tarefa.title}</td>
                         <td>${tarefa.priority}</td>
                         <td class="${statusClass}">${statusTxt}</td>
-                        <td>${botaoAcao}</td>
+                        <td class="acoes-container">${botaoAcao} ${botaoEditar} ${botaoExcluir}</td>
                     `;
                     tabelaBody.appendChild(linha);
                 });
@@ -154,24 +155,52 @@
         }
 
         async function adicionarTarefa() {
-            const title = document.getElementById('taskTitle').value;
+            const titleInput = document.getElementById('taskTitle');
+            const title = titleInput.value;
+            if (!title) return alert('Por favor, digite um título.');
+
             const priority = document.getElementById('taskPriority').value;
             const traduzir = { 'Baixa': 'low', 'Média': 'medium', 'Alta': 'high' };
 
             await fetch(`${API_URL}/tasks`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getAuthHeaders(),
                 body: JSON.stringify({ title, priority: traduzir[priority], status: 'pending' })
+            });
+            titleInput.value = ''; 
+            carregarTarefas();
+        }
+
+        async function alterarStatus(taskId, novoStatus) {
+            await fetch(`${API_URL}/tasks/${taskId}`, {
+                method: 'PUT',
+                headers: getAuthHeaders(),
+                body: JSON.stringify({ status: novoStatus })
             });
             carregarTarefas();
         }
 
-        // Função genérica que agora aceita o status que queremos definir
-        async function alterarStatus(taskId, novoStatus) {
-            await fetch(`${API_URL}/tasks/${taskId}`, {
+        async function excluirTarefa(taskId) {
+            if (!confirm('Tem certeza que deseja excluir esta tarefa?')) return;
+            await fetch(`${API_URL}/tasks/${taskId}`, { method: 'DELETE', headers: getAuthHeaders() });
+            carregarTarefas();
+        }
+
+        async function editarTarefa(taskId, tituloAtual, prioridadeAtual) {
+            const novoTitulo = prompt('Editar título da tarefa:', tituloAtual);
+            if (!novoTitulo || novoTitulo.trim() === '') return;
+
+            let novaPrioridade = prompt('Editar prioridade (Baixa, Média, Alta):', prioridadeAtual === 'low' ? 'Baixa' : prioridadeAtual === 'medium' ? 'Média' : 'Alta');
+            if (!novaPrioridade) return;
+
+            novaPrioridade = novaPrioridade.charAt(0).toUpperCase() + novaPrioridade.slice(1).toLowerCase();
+            const traduzir = { 'Baixa': 'low', 'Média': 'medium', 'Alta': 'high', 'Low': 'low', 'Medium': 'medium', 'High': 'high' };
+            const prio = traduzir[novaPrioridade] || 'medium';
+
+            await fetch(`${API_URL}/tasks/${taskId}/edit`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status: novoStatus })
+                headers: getAuthHeaders(),
+                body: JSON.stringify({ title: novoTitulo, priority: prio })
             });
             carregarTarefas();
         }
@@ -181,11 +210,15 @@
             if (!file) return alert('Selecione um arquivo.');
             const formData = new FormData();
             formData.append('file', file);
-            await fetch(`${API_URL}/uploads/`, { method: 'POST', body: formData });
+            await fetch(`${API_URL}/uploads/`, { method: 'POST', headers: getAuthHeaders(true), body: formData });
             alert('Upload realizado!');
         }
 
-        function sair() { window.location.href = 'login.html'; }
+        function sair() { 
+            localStorage.removeItem('token');
+            localStorage.removeItem('userEmail');
+            window.location.href = 'login.html'; 
+        }
     </script>
 </body>
 </html>
