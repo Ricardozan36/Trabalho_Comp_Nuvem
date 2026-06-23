@@ -224,18 +224,19 @@ async function doLogin(btn){
   try{
     const r=await tfetch(API+"/auth/login",{method:"POST",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({username:$("#lg-user").value,password:$("#lg-pass").value})});
-    if(!r.ok){$("#lg-err").textContent=r.status===401?"Usuário ou senha inválidos.":"Erro "+r.status;return;}
-    const d=await r.json();TOKEN=d.access_token;localStorage.setItem("cloudtask_token",TOKEN);
-    showApp();
-  }catch(e){$("#lg-err").textContent="Não foi possível conectar à API ("+e.message+"). Confira a URL em ⚙.";}
-  finally{if(btn)btn.disabled=false;}
+    if(!r.ok){$("#lg-err").textContent=r.status===401?"Usuário ou senha inválidos.":"Erro "+r.status;if(btn)btn.disabled=false;return;}
+    const d=await r.json();localStorage.setItem("cloudtask_token",d.access_token);
+    // Em vez de uma transição via JS (que em alguns navegadores deixava a tela
+    // sem responder), recarregamos: a página entra pela via "boot com token",
+    // 100% limpa e comprovadamente estável.
+    location.reload();
+  }catch(e){$("#lg-err").textContent="Não foi possível conectar à API ("+e.message+"). Confira a URL em ⚙.";if(btn)btn.disabled=false;}
 }
 function logout(){
   abortAll();                                  // cancela requisições em voo
-  _loading=_again=_saving=_uploading=false;     // zera as travas (evita board preso no relogin)
-  closeDialogs();                              // não deixa modal aberto bloqueando cliques
   TOKEN="";localStorage.removeItem("cloudtask_token");
-  $("#app").style.display="none";$("#login").style.display="grid";
+  // Recarrega para o login com estado 100% limpo (sem travas/modais presos).
+  location.reload();
 }
 // NÃO bloqueia a UI: mostra o app já e carrega em segundo plano (clicar funciona
 // na hora, mesmo se a API estiver lenta).
