@@ -70,6 +70,13 @@ echo "==> [post-create] Instalando AWS CDK (npm global)..."
 sudo npm install -g aws-cdk \
   || echo "AVISO: falha ao instalar aws-cdk (instale depois com: sudo npm install -g aws-cdk)"
 
+echo "==> [post-create] Instalando libs Python do CDK (aws-cdk-lib)..."
+# O `cdk synth` roda `python3 app.py`, que importa `aws_cdk`. O CLI (npm acima)
+# NÃO traz essa lib Python — ela vem do requirements do CDK. Sem isto, o deploy
+# falha com "No module named 'aws_cdk'".
+python3 -m pip install --user -q -r /app/infra/cdk/requirements.txt \
+  || echo "AVISO: falha ao instalar libs do CDK (instale: python3 -m pip install --user -r infra/cdk/requirements.txt)"
+
 echo "==> [post-create] Versões instaladas:"
 # '|| true' para não abortar caso alguma ferramenta ainda não esteja no PATH.
 python --version || true

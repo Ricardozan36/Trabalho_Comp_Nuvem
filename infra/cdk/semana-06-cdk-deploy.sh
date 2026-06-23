@@ -55,6 +55,14 @@ fi
 
 case "${ACTION}" in
   deploy)
+    # Garante as libs Python do CDK. O cdk.json roda `python3 app.py`; sem o
+    # aws-cdk-lib instalado (ex.: container recém-recriado em que o post-create
+    # não rodou), o synth falha com "No module named 'aws_cdk'". Instala de forma
+    # idempotente (rápido se já existe).
+    python3 -c "import aws_cdk" 2>/dev/null || {
+      echo "==> instalando libs do CDK (aws-cdk-lib)..."
+      python3 -m pip install -q --user -r requirements.txt
+    }
     echo "==> cdk synth (gera os templates em cdk.out/)..."
     cdk synth >/dev/null
     for s in "${STACKS[@]}"; do
