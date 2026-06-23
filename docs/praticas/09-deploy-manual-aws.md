@@ -20,7 +20,7 @@
 | Etapa | Quando | Seção |
 | --- | :---: | --- |
 | **A.** Criar bucket S3 (sanity check) | Semana 3 | [§1](#1-semana-3--bucket-s3-sanity-check) |
-| **B.** Linkar repo GitHub → AWS (CodeBuild) | Semana 4 | [§2](#2-semana-4--linkar-github-na-aws-via-codebuild) |
+| **B.** Linkar repo GitHub → AWS (CodeBuild) — **só conta própria** | Semana 4 | [§2](#2-semana-4--linkar-github-na-aws-via-codebuild--apenas-conta-aws-própria) |
 | **C.** Push da imagem para ECR | Semana 4 | [§3](#3-semana-4--push-da-imagem-para-ecr) |
 | **D.** Subir API em **ECS Fargate** (atalho simples) | Semana 4 (opcional) | [§4](#4-semana-4-opcional--ecs-fargate-deploy-simples) |
 | **E.** Provisionar **EKS** com `eksctl` | Semana 5 | [§5](#5-semana-5--provisionar-eks-com-eksctl) |
@@ -29,7 +29,7 @@
 | **H.** Configurar `.env` via **Secrets Manager** | Semana 6 | [§8](#8-semana-6--secrets-manager-para-env) |
 | **I.** HPA + load test | Semana 6 | [§9](#9-semana-6--hpa--load-test) |
 | **J.** Eventos em **DynamoDB** | Semana 6 | [§10](#10-semana-6--dynamodb-para-eventos) |
-| **K.** **Cleanup obrigatório** ao fim de toda aula | Sempre | [§11](#11-sempre--cleanup-obrigatorio) |
+| **K.** **Cleanup obrigatório** ao fim de toda aula | Sempre | [§11](#11-sempre--cleanup-obrigatório) |
 
 > ⚠️ **Numeração de semana** segue [`ROADMAP.md`](../ROADMAP.md). A demo final
 > em ALB + ACM + Route 53 + EKS roda na **conta pessoal do professor** (não
@@ -86,22 +86,36 @@ S3_BUCKET_NAME=cloudtask-uploads-...
 
 ---
 
-## 2. Semana 4 — Linkar GitHub na AWS (via CodeBuild)
+## 2. Semana 4 — Linkar GitHub na AWS (via CodeBuild) — apenas conta AWS própria
 
 > **Quando:** **Aula 7**. **Opcional** — também pode buildar localmente e dar
 > `docker push`. Mas conectar o GitHub ensina **pipeline real**.
+
+> 🛑 **Se você está no AWS Academy / Learner Lab, esta seção inteira (§2) NÃO vai
+> funcionar.** A sua role do laboratório (`voclabs`) tem um **bloqueio explícito**
+> ao CodeBuild (policy `Pvoclabs2`). Na prática, tanto abrir o Console
+> (`codebuild:ListProjects`) quanto criar um projeto (`codebuild:CreateProject`)
+> retornam:
+>
+> ```text
+> AccessDeniedException ... explicit deny in an identity-based policy:
+> arn:aws:iam::...:policy/Pvoclabs2
+> ```
+>
+> Bloqueio explícito **não tem como liberar** — ele tem precedência máxima no
+> IAM, nenhuma permissão o sobrepõe.
+>
+> **No Academy, o caminho a seguir é:** construir a imagem na sua máquina e dar
+> **`docker push`** ([§3.2](#32-caminho-a--build-local--push-direto-sem-codebuild)),
+> e subir em **ECS Fargate via CLI usando a `LabRole`**
+> ([§4.1-AWS_ACADEMY](#41-aws_academy--via-cli)). **Pule a §2 inteira** e vá
+> direto pra lá.
 
 ### Por que CodeBuild e não Actions/Jenkins?
 
 CodeBuild é **serverless** (paga só por minuto rodando), nativo da AWS e
 integra com ECR/EKS sem extra. Para esta disciplina, é o caminho mais
 didático para **ver o pipeline acontecer dentro da AWS**.
-
-> Limite Learner Lab: o CodeBuild **roda**, mas a role `voclabs` **não
-> autoriza** `codebuild:ImportSourceCredentials` (conectar GitHub privado)
-> nem webhooks. No Academy a fonte do build vem de um **zip no S3**
-> ([§2.3-AWS_ACADEMY](#23-aws_academy--fonte-do-build-via-s3-sem-github)) e o build
-> é disparado **on-demand** (manual).
 
 ### Passos
 
@@ -153,19 +167,9 @@ Commitar e empurrar.
 
 #### 2.3-AWS_PROPRIA — Conectar o GitHub no CodeBuild via CLI
 
-> ⚠️ **Este comando só funciona em conta AWS própria/privada** (com IAM
-> amplo). **No AWS Academy / Learner Lab ele FALHA** — a role `voclabs` não
-> tem a permissão `codebuild:ImportSourceCredentials`:
->
-> ```text
-> An error occurred (AccessDeniedException) when calling the
-> ImportSourceCredentials operation: User: arn:aws:sts::...:assumed-role/
-> voclabs/... is not authorized to perform: codebuild:ImportSourceCredentials
-> ```
->
-> Não há como liberar essa permissão no Academy (IAM travado). **Se você
-> está no Learner Lab, pule este comando** e use a alternativa via S3 logo
-> abaixo ([§2.3-AWS_ACADEMY](#23-aws_academy--fonte-do-build-via-s3-sem-github)).
+> ⚠️ **Este comando só funciona em conta AWS própria/privada** (com IAM amplo).
+> No AWS Academy todo o CodeBuild está bloqueado por deny explícito — ver o
+> aviso no topo da [§2](#2-semana-4--linkar-github-na-aws-via-codebuild--apenas-conta-aws-própria).
 
 Em **conta própria**:
 
@@ -176,82 +180,13 @@ aws codebuild import-source-credentials \
   --token "ghp_SEU_TOKEN_AQUI"
 ```
 
-#### 2.3-AWS_ACADEMY — Fonte do build via S3 (sem GitHub)
+#### 2.4. Criar o projeto CodeBuild (apenas conta própria)
 
-No Learner Lab o CodeBuild não consegue clonar o GitHub (sem
-`ImportSourceCredentials`). Solução permitida pela role `voclabs`:
-**empacotar o código num zip, subir num bucket S3 e apontar o CodeBuild
-para esse zip**.
+> 🔵 **Conta AWS própria:** crie **tudo via CLI** (abaixo): role IAM + projeto
+> + webhook de `git push`. (No Academy nada disto funciona — CodeBuild tem deny
+> explícito; ver aviso no topo da §2.)
 
-**Linux/macOS (bash):**
-```bash
-# 0. (uma vez) descobrir o ACCOUNT_ID — usado aqui e na §3
-export ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-echo "Account: $ACCOUNT_ID"
-
-# 1. criar (ou reutilizar) um bucket para o codigo-fonte
-export SRC_BUCKET=cloudtask-src-$ACCOUNT_ID
-aws s3 mb s3://$SRC_BUCKET --region us-east-1
-
-# 2. zipar o repo (sem .git e sem lixo) e enviar ao S3
-zip -r /tmp/source.zip . -x '.git/*' '*/__pycache__/*' '*.pyc'
-aws s3 cp /tmp/source.zip s3://$SRC_BUCKET/source.zip
-
-# 3. confirmar
-aws s3 ls s3://$SRC_BUCKET/
-```
-
-**Windows (PowerShell):**
-```powershell
-# 0. (uma vez) descobrir o ACCOUNT_ID — usado aqui e na §3
-$env:ACCOUNT_ID = aws sts get-caller-identity --query Account --output text
-echo "Account: $env:ACCOUNT_ID"
-
-# 1. criar (ou reutilizar) um bucket para o codigo-fonte
-$env:SRC_BUCKET = "cloudtask-src-$env:ACCOUNT_ID"
-aws s3 mb "s3://$env:SRC_BUCKET" --region us-east-1
-
-# 2. zipar o repo e enviar ao S3 (Compress-Archive no lugar do zip).
-#    Remova .git/__pycache__ antes para não inflar o pacote.
-Compress-Archive -Path * -DestinationPath "$env:TEMP\source.zip" -Force
-aws s3 cp "$env:TEMP\source.zip" "s3://$env:SRC_BUCKET/source.zip"
-
-# 3. confirmar
-aws s3 ls "s3://$env:SRC_BUCKET/"
-```
-
-No projeto do CodeBuild (passo 2.4), em vez de **Source: GitHub**, escolha
-**Source: Amazon S3** e informe `s3://<SEU_SRC_BUCKET>/source.zip`. O resto
-(buildspec, env vars, LabRole) é idêntico.
-
-> 💡 A cada mudança no código, refaça o `zip` + `aws s3 cp` e dispare o
-> build de novo. É o "git push" manual do Academy.
-
-#### 2.4. Criar o projeto CodeBuild
-
-> 🟢 **AWS Academy (Learner Lab):** crie pelo **Console** (caminho A) — a
-> role `voclabs` não autoriza tudo via CLI (criar role IAM, webhook etc.).
->
-> 🔵 **Conta AWS própria:** dá para criar **tudo via CLI** (caminho B):
-> role IAM + projeto + webhook de `git push`.
-
-**A) Via Console (Academy e conta própria):**
-
-1. Console → CodeBuild → Create build project.
-2. **Source:** GitHub → seu repo → branch `semana-04-eks-aws`.
-   - **No Academy:** escolha **Amazon S3** → `s3://cloudtask-src-<ACCOUNT_ID>/source.zip`
-     (ver [§2.3-AWS_ACADEMY](#23-aws_academy--fonte-do-build-via-s3-sem-github)).
-3. **Environment:**
-   - Managed image, Ubuntu, Standard 7.0.
-   - Privileged: **ON** (necessário para `docker build`).
-   - Service role: **LabRole** (única disponível no Academy).
-4. **Buildspec:** Use a buildspec file → `buildspec.yml`.
-5. **Env vars:**
-   - `AWS_REGION` = `us-east-1`
-   - `ECR_REPO_URI` = (preencher depois de criar repo na §3)
-6. Create build project → Start build (manual).
-
-**B) Via CLI (apenas conta AWS PRÓPRIA):**
+**Via CLI (apenas conta AWS PRÓPRIA):**
 
 Pré-req: token GitHub já importado na §2.3-AWS_PROPRIA — é com essa credencial que o
 CodeBuild clona o repo.
@@ -360,11 +295,10 @@ aws codebuild create-webhook `
 > primeiro build**, senão o `docker push` falha.
 >
 > 💡 O webhook (passo 4) é o que transforma o build manual em **CI de
-> verdade**: cada `git push` na branch dispara o pipeline sozinho. No
-> Academy ele não existe (sem credencial GitHub) — lá o "git push" é o
-> re-zip + `aws s3 cp` da [§2.3-AWS_ACADEMY](#23-aws_academy--fonte-do-build-via-s3-sem-github).
+> verdade**: cada `git push` na branch dispara o pipeline sozinho. (No Academy
+> nada disto roda — CodeBuild tem deny explícito; ver topo da §2.)
 
-**Resultado:** CodeBuild puxa o código (GitHub ou zip no S3), faz
+**Resultado (conta própria):** CodeBuild puxa o código do GitHub, faz
 `docker build`, e dá push pro ECR.
 
 ---
@@ -373,7 +307,9 @@ aws codebuild create-webhook `
 
 > **Quando:** Aula 7. Duas formas de colocar a imagem no ECR:
 > - **A) Deploy direto** — build local + `docker push` (rápido, sem pipeline).
+>   **Único caminho no AWS Academy** e o que cobrimos por padrão.
 > - **B) Via CodeBuild** — a AWS builda e dá push (usa o projeto da §2).
+>   **Apenas conta AWS própria** (CodeBuild bloqueado no Academy — ver §2).
 >
 > Os dois precisam do **repositório ECR criado** primeiro (3.1).
 
@@ -381,10 +317,8 @@ aws codebuild create-webhook `
 > - **Caminho A vs B** = *onde* o build roda (sua máquina vs nuvem/CodeBuild).
 > - **Conta própria vs Academy** = *qual* conta AWS (IAM amplo vs `voclabs`).
 >
-> São independentes. O **Caminho A** é **igual** nas duas contas (build é
-> local). O **Caminho B** é o único que diverge — a **fonte** do build muda:
-> GitHub (própria) ou zip no S3 (Academy) — daí o split `3.3-AWS_PROPRIA` /
-> `3.3-AWS_ACADEMY`.
+> O **Caminho A** é **igual** nas duas contas (build é local) — no Academy é o
+> **único** que funciona. O **Caminho B** (§3.3) é exclusivo da conta própria.
 
 ### 3.1. Criar o repositório ECR + descobrir o `<acct>`
 
@@ -480,17 +414,17 @@ aws ecr list-images --repository-name cloudtask-api
 > 💡 `target prod` garante imagem **sem dev tools** (menor superfície de
 > ataque + imagem menor).
 
-### 3.3. Caminho B — build via CodeBuild (push automático)
+### 3.3. Caminho B — build via CodeBuild (push automático) — apenas conta própria
+
+> 🛑 **Não funciona no AWS Academy** — CodeBuild tem deny explícito para a
+> `voclabs` (ver topo da §2). No Learner Lab use o **Caminho A** ([§3.2](#32-caminho-a--build-local--push-direto-sem-codebuild)).
 
 Reaproveita o projeto da §2 e o `buildspec.yml` (§2.1: login, build `target
-prod`, tag e push) — o CodeBuild executa tudo na nuvem. A **única** diferença
-entre as contas é a **fonte** do build: GitHub (própria) ou zip no S3
-(Academy). Por isso este caminho se divide em dois abaixo.
+prod`, tag e push) — o CodeBuild executa tudo na nuvem. A fonte é o GitHub
+(configurada na §2.4).
 
-#### 3.3-AWS_PROPRIA — fonte GitHub
-
-A fonte já é o GitHub (configurada na §2.4). Cada `git push` na branch já
-dispara o build pelo **webhook** (§2.4); para disparar **manualmente**:
+Cada `git push` na branch já dispara o build pelo **webhook** (§2.4); para
+disparar **manualmente**:
 
 **Linux/macOS (bash):**
 ```bash
@@ -526,58 +460,7 @@ aws codebuild batch-get-builds --ids $env:BUILD_ID `
 aws ecr list-images --repository-name cloudtask-api
 ```
 
-#### 3.3-AWS_ACADEMY — fonte zip → S3
-
-Sem credencial GitHub, a fonte é um **zip no S3**
-([§2.3-AWS_ACADEMY](#23-aws_academy--fonte-do-build-via-s3-sem-github)).
-Reempacote e suba o código **antes de cada build** — é o "git push" manual
-do Academy.
-
-**Linux/macOS (bash):**
-```bash
-# 1. reempacotar o codigo e subir ao S3
-zip -r /tmp/source.zip . -x '.git/*' '*/__pycache__/*' '*.pyc'
-aws s3 cp /tmp/source.zip s3://cloudtask-src-$ACCOUNT_ID/source.zip
-
-# 2. disparar o build
-export BUILD_ID=$(aws codebuild start-build \
-  --project-name cloudtask-api \
-  --query 'build.id' --output text)
-echo "Build: $BUILD_ID"
-
-# 3. acompanhar o status + confirmar a imagem
-aws codebuild batch-get-builds --ids $BUILD_ID \
-  --query 'builds[0].buildStatus' --output text
-aws ecr list-images --repository-name cloudtask-api
-```
-
-**Windows (PowerShell):**
-```powershell
-# 1. reempacotar o codigo e subir ao S3
-Compress-Archive -Path * -DestinationPath "$env:TEMP\source.zip" -Force
-aws s3 cp "$env:TEMP\source.zip" "s3://cloudtask-src-$env:ACCOUNT_ID/source.zip"
-
-# 2. disparar o build
-$env:BUILD_ID = aws codebuild start-build `
-  --project-name cloudtask-api `
-  --query 'build.id' --output text
-echo "Build: $env:BUILD_ID"
-
-# 3. acompanhar o status + confirmar a imagem
-aws codebuild batch-get-builds --ids $env:BUILD_ID `
-  --query 'builds[0].buildStatus' --output text
-aws ecr list-images --repository-name cloudtask-api
-```
-
-> 💡 Se `start-build` falhar por permissão no Academy, dispare pelo Console
-> (CodeBuild → projeto → **Start build**). O acompanhamento por CLI continua
-> valendo.
-
-> 💡 A env var `ECR_REPO_URI` é configurada no Console do CodeBuild
-> (projeto → Edit → Environment → Env vars), não no shell:
-> `ECR_REPO_URI = <acct>.dkr.ecr.us-east-1.amazonaws.com/cloudtask-api`.
-
-**Cleanup do ECR:** seção [§11](#11-sempre--cleanup-obrigatorio).
+**Cleanup do ECR:** seção [§11](#11-sempre--cleanup-obrigatório).
 
 ---
 
@@ -599,9 +482,10 @@ aws ecr list-images --repository-name cloudtask-api
 
 > 🔵 **Conta AWS própria:** crie **tudo via CLI** (§4.1-AWS_PROPRIA).
 >
-> 🟢 **AWS Academy (Learner Lab):** crie pelo **Console** (§4.1-AWS_ACADEMY) —
-> a role `voclabs` não autoriza criar a task execution role via CLI. O
-> Console também serve à conta própria, se preferir clicar.
+> 🟢 **AWS Academy (Learner Lab):** crie **tudo via CLI** usando a `LabRole`
+> (§4.1-AWS_ACADEMY) — sem precisar de Console. A sua role `voclabs` não deixa
+> **criar** uma role nova (`iam:CreateRole`), mas a `LabRole` já existe e serve
+> como task/execution role.
 
 #### 4.1-AWS_PROPRIA — via CLI (apenas conta própria)
 
@@ -779,51 +663,168 @@ aws ec2 describe-network-interfaces --network-interface-ids $env:ENI_ID `
 # curl http://<IP>:8000/health
 ```
 
-#### 4.1-AWS_ACADEMY — via Console (também serve à conta própria)
+#### 4.1-AWS_ACADEMY — via CLI
 
-1. Console → ECS → Clusters → Create cluster.
-   - Cluster name: `cloudtask-fargate`.
-   - Infrastructure: **AWS Fargate (serverless)**.
-2. Task definitions → Create new.
-   - Family: `cloudtask-api`.
-   - Launch type: Fargate.
-   - OS: Linux x86_64.
-   - CPU: 0.25 vCPU, Memory: 0.5 GB.
-   - Task role: **LabRole**, Task execution role: **LabRole**.
-   - Container:
-     - Name: `api`.
-     - Image URI: `<ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/cloudtask-api:latest`.
-     - Port mapping: 8000 TCP.
-     - Env vars: cole `DATABASE_URL`, `SECRET_KEY`, etc.
-3. Services → Create.
-   - Cluster: `cloudtask-fargate`.
-   - Task definition: `cloudtask-api:1`.
-   - Desired tasks: 1.
-   - Networking: VPC default, subnets públicas, Security Group permitindo 8000.
-   - Public IP: ENABLED (para testar sem LB).
-4. Aguardar `RUNNING` → pegar Public IP da task → `curl http://<IP>:8000/health`.
+> 🟢 Este fluxo sobe **API + Postgres na mesma task** (falando por `localhost`),
+> usando a `LabRole`, e deixa a API acessível por **IP público** — tudo por linha
+> de comando, sem Console. Exemplos em **PowerShell** (Windows); em bash, troque
+> `$env:X` por `$X` e a continuação `` ` `` por `\`.
+
+##### Passo 0 — variáveis (com a `LabRole`)
+
+```powershell
+$env:ACCOUNT_ID = aws sts get-caller-identity --query Account --output text
+$env:ECR        = "$env:ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/cloudtask-api"
+$env:LABROLE    = "arn:aws:iam::$($env:ACCOUNT_ID):role/LabRole"
+echo "ECR=$env:ECR  LabRole=$env:LABROLE"
+```
+
+##### Passo 1 — registrar o task-def (API + Postgres) com a `LabRole`
+
+Usa o arquivo **versionado** [`infra/aws/task-def-fargate-api-db.json`](../../infra/aws/task-def-fargate-api-db.json),
+trocando `EXEC_ROLE_ARN`/`TASK_ROLE_ARN` pela `LabRole` (no Academy você **não**
+cria `ecsTaskExecutionRole` — `iam:CreateRole` cai em deny).
+
+⚠️ Os placeholders `<TROQUE_SENHA_DB>` e `<TROQUE_SECRET_KEY>` aparecem em mais
+de um lugar (a senha também entra na `DATABASE_URL`); o `-replace` troca **todas**
+as ocorrências, então a senha do Postgres e a da connection string ficam iguais —
+é isso que faz a API conectar. Rode na **raiz do repo**.
+
+```powershell
+$pgpass = -join ((1..32) | ForEach-Object { '{0:x}' -f (Get-Random -Maximum 16) })
+$skey   = -join ((1..64) | ForEach-Object { '{0:x}' -f (Get-Random -Maximum 16) })
+
+(Get-Content infra/aws/task-def-fargate-api-db.json) `
+  -replace '<ACCOUNT_ID>',       $env:ACCOUNT_ID `
+  -replace 'EXEC_ROLE_ARN',      $env:LABROLE `
+  -replace 'TASK_ROLE_ARN',      $env:LABROLE `
+  -replace '<TROQUE_SENHA_DB>',  $pgpass `
+  -replace '<TROQUE_SECRET_KEY>',$skey |
+  Set-Content "$env:TEMP\task-def-apidb.json" -Encoding ascii
+
+aws ecs register-task-definition --cli-input-json "file://$env:TEMP\task-def-apidb.json"
+```
+
+##### Passo 2 — cluster
+
+```powershell
+aws ecs create-cluster --cluster-name cloudtask-fargate
+```
+
+##### Passo 3 — rede (subnet pública + Security Group na porta 8000)
+
+⚠️ **Pegadinha PowerShell #1 (subnet):** `describe-subnets --filters Name=vpc-id,...`
+às vezes retorna `None` mesmo com subnet existente. Use o filtro
+`default-for-az` (mais confiável) e derive a VPC **a partir da subnet**.
+
+⚠️ **Pegadinha PowerShell #2 (filtros):** filtros AWS devem ir **entre aspas**;
+sem aspas, `describe-security-groups` falha com `InvalidParameterValue: vpc-id`.
+
+⚠️ `--cidr 0.0.0.0/0` na 8000 expõe a API à internet inteira. Didático, só pra
+testar sem load balancer. Nunca em produção real.
+
+```powershell
+# subnet default da AZ + a VPC real dela
+$env:SUBNET_ID = aws ec2 describe-subnets `
+  --filters "Name=default-for-az,Values=true" "Name=availability-zone,Values=us-east-1a" `
+  --query 'Subnets[0].SubnetId' --output text
+$env:VPC_ID = aws ec2 describe-subnets --subnet-ids $env:SUBNET_ID `
+  --query 'Subnets[0].VpcId' --output text
+
+# Security Group nessa VPC (reaproveita se já existir)
+$env:SG_ID = aws ec2 create-security-group --group-name cloudtask-fargate-sg `
+  --description "ECS Fargate 8000" --vpc-id $env:VPC_ID --query 'GroupId' --output text 2>$null
+if (-not $env:SG_ID) {
+  $env:SG_ID = aws ec2 describe-security-groups `
+    --filters "Name=group-name,Values=cloudtask-fargate-sg" `
+    --query 'SecurityGroups[0].GroupId' --output text
+}
+echo "SUBNET=$env:SUBNET_ID  VPC=$env:VPC_ID  SG=$env:SG_ID"
+
+# abre a 8000 (idempotente)
+aws ec2 authorize-security-group-ingress --group-id $env:SG_ID `
+  --protocol tcp --port 8000 --cidr 0.0.0.0/0 2>$null
+```
+
+> 🟡 Se a subnet não existir em nenhuma AZ (`None`), crie uma default:
+> `aws ec2 create-default-subnet --availability-zone us-east-1a` e recapture o ID.
+
+##### Passo 4 — service (1 task, IP público)
+
+⚠️ **Pegadinha PowerShell #3 (continuação):** o valor do `--network-configuration`
+precisa vir **na mesma linha** do flag ou com a continuação `` ` `` correta logo
+após o flag. Se a string colar/quebrar errado, o erro é `expected one argument`.
+
+```powershell
+aws ecs create-service --cluster cloudtask-fargate --service-name cloudtask-api `
+  --task-definition cloudtask-api --desired-count 1 --launch-type FARGATE `
+  --network-configuration `
+  "awsvpcConfiguration={subnets=[$env:SUBNET_ID],securityGroups=[$env:SG_ID],assignPublicIp=ENABLED}"
+```
+
+##### Passo 5 — esperar estabilizar e pegar o IP público
+
+⚠️ A task tem `dependsOn` no Postgres ficar `HEALTHY` (`pg_isready`), então a
+primeira subida leva ~1-2 min a mais. Paciência no `wait`.
+
+```powershell
+aws ecs wait services-stable --cluster cloudtask-fargate --services cloudtask-api
+
+$env:TASK_ARN = aws ecs list-tasks --cluster cloudtask-fargate `
+  --service-name cloudtask-api --query 'taskArns[0]' --output text
+$env:ENI_ID = aws ecs describe-tasks --cluster cloudtask-fargate --tasks $env:TASK_ARN `
+  --query "tasks[0].attachments[0].details[?name=='networkInterfaceId'].value | [0]" --output text
+$env:PUBLIC_IP = aws ec2 describe-network-interfaces --network-interface-ids $env:ENI_ID `
+  --query "NetworkInterfaces[0].Association.PublicIp" --output text
+echo "API em http://$($env:PUBLIC_IP):8000"
+```
+
+##### Passo 6 — acessar a API externamente
+
+⚠️ **Pegadinha PowerShell #4 (JSON no curl):** `-d '{\"title\":...}'` **falha**
+com `json_invalid` — dentro de aspas simples o `\` é literal. Use aspas duplas
+**normais** dentro das simples, via `--data-raw`.
+
+```powershell
+# liveness (não toca no banco)
+curl.exe "http://$($env:PUBLIC_IP):8000/health"
+# readiness (confirma que a API enxerga o Postgres ao lado)
+curl.exe "http://$($env:PUBLIC_IP):8000/health/ready"
+# criar uma tarefa de fora (JSON com aspas duplas normais)
+curl.exe -sX POST "http://$($env:PUBLIC_IP):8000/tasks" `
+  -H "Content-Type: application/json" `
+  --data-raw '{"title":"Tarefa via Fargate","priority":"high"}'
+# listar
+curl.exe "http://$($env:PUBLIC_IP):8000/tasks"
+```
+
+`/health` → `{"status":"ok"}` já prova acesso externo; `/health/ready` →
+`{"status":"ready","db":"ok"}` prova a API + banco; o POST/GET de `/tasks` prova
+escrita externa.
 
 > ⚠️ **`Public IP: ENABLED` / `--cidr 0.0.0.0/0` é didático**, NÃO usar em
 > produção real. Em produção: Fargate atrás de ALB, sem IP público.
 
-> 🩺 **Task presa em `PENDING` e nunca vira `RUNNING`?** A VPC default da conta
-> pode estar **sem Internet Gateway** (contas "limpas" às vezes perdem IGW e
-> subnets) — sem IGW o Fargate não alcança o ECR para puxar a imagem. Sintoma:
-> a rota `0.0.0.0/0` da route table aparece como **blackhole**. Recrie o IGW
-> (mexe em rede da VPC — rode com consciência):
-> ```bash
-> IGW_ID=$(aws ec2 create-internet-gateway --query 'InternetGateway.InternetGatewayId' --output text)
-> aws ec2 attach-internet-gateway --internet-gateway-id $IGW_ID --vpc-id $VPC_ID
-> RT_ID=$(aws ec2 describe-route-tables --filters Name=vpc-id,Values=$VPC_ID Name=association.main,Values=true \
->   --query 'RouteTables[0].RouteTableId' --output text)
-> aws ec2 replace-route --route-table-id $RT_ID --destination-cidr-block 0.0.0.0/0 --gateway-id $IGW_ID
+> 🩺 **Task presa em `PENDING` e nunca vira `RUNNING`?** A VPC default pode estar
+> **sem Internet Gateway** (contas "limpas" às vezes perdem IGW) — sem IGW o
+> Fargate não alcança o ECR para puxar a imagem. Sintoma: a rota `0.0.0.0/0` da
+> route table aparece como **blackhole**. Recrie o IGW (mexe em rede da VPC —
+> rode com consciência):
+> ```powershell
+> $env:IGW_ID = aws ec2 create-internet-gateway --query 'InternetGateway.InternetGatewayId' --output text
+> aws ec2 attach-internet-gateway --internet-gateway-id $env:IGW_ID --vpc-id $env:VPC_ID
+> $env:RT_ID = aws ec2 describe-route-tables `
+>   --filters "Name=vpc-id,Values=$env:VPC_ID" "Name=association.main,Values=true" `
+>   --query 'RouteTables[0].RouteTableId' --output text
+> aws ec2 create-route --route-table-id $env:RT_ID --destination-cidr-block 0.0.0.0/0 --gateway-id $env:IGW_ID
+> aws ecs update-service --cluster cloudtask-fargate --service cloudtask-api --force-new-deployment
 > ```
 
 ---
 
 #### 4.2-AWS_PROPRIA — variante didática: 2 containers (API + Postgres) e a prova da perda de dados
 
-> **Continua do [§4.1-AWS_PROPRIA](#41-aws_propria--via-cli-apenas-conta-propria):**
+> **Continua do [§4.1-AWS_PROPRIA](#41-aws_propria--via-cli-apenas-conta-própria):**
 > reusa `$ACCOUNT_ID`, `$ECR`, a role `ecsTaskExecutionRole`, o cluster
 > `cloudtask-fargate`, o `$SUBNET_ID` e o `$SG_ID` já criados lá.
 >
@@ -1478,7 +1479,7 @@ aws rds delete-db-instance \
   --db-instance-identifier cloudtask-db \
   --skip-final-snapshot
 
-# 5. apagar buckets S3 (uploads e, se usou CodeBuild no Academy, o de fonte)
+# 5. apagar buckets S3 (uploads e, se criou o de fonte do CodeBuild na conta própria)
 aws s3 rb s3://$BUCKET --force
 aws s3 rb s3://cloudtask-src-$ACCOUNT_ID --force 2>/dev/null || true
 
@@ -1514,8 +1515,8 @@ houver gasto, alguma coisa escapou.
 | --- | :---: | :---: |
 | Criar bucket S3 | ⭐ | Aula 5 |
 | Login + push ECR | ⭐⭐ | Aula 7 |
-| ECS Fargate (CLI própria / Console Academy) | ⭐⭐ | Aula 7 (opcional) |
-| CodeBuild + GitHub | ⭐⭐⭐ | Aula 7 |
+| ECS Fargate via CLI (própria **e** Academy/LabRole) | ⭐⭐ | Aula 7 (opcional) |
+| CodeBuild + GitHub (**só conta própria**) | ⭐⭐⭐ | Aula 7 |
 | EKS + manifests | ⭐⭐⭐⭐ | Aula 8 |
 | Postgres como Pod | ⭐⭐ | Aula 8 |
 | Postgres RDS + SG | ⭐⭐⭐⭐ | Aula 9 ou final |
