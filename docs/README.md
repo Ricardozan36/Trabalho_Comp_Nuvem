@@ -25,6 +25,7 @@ Texto explicativo. Pouco ou nenhum comando para rodar. Leia antes (ou durante) a
 | [`conceitos/aws-networking.md`](conceitos/aws-networking.md) | 4 | VPC, subnets pública/privada, Security Groups, Internet Gateway, NAT, bastion |
 | [`conceitos/security-model.md`](conceitos/security-model.md) | 4 | IAM, MFA, responsabilidade compartilhada, criptografia, LGPD |
 | [`conceitos/https-tls.md`](conceitos/https-tls.md) | 4 | TLS, ALB, HSTS, mkcert local, proxy-headers |
+| [`conceitos/seguranca-aula12-auth-proxy-cert.md`](conceitos/seguranca-aula12-auth-proxy-cert.md) | 6 | **Entrega final:** login/JWT Bearer, proxy reverso + `/api` como Server (root_path), servidor de cert (Caddy+ACME+sslip.io), Swagger com senha |
 | [`conceitos/s3-efs-datalake.md`](conceitos/s3-efs-datalake.md) | 5 | S3 × EFS × EBS, classes, URL pré-assinada, Data Lake |
 | [`conceitos/infra-aws-minima-por-semana.md`](conceitos/infra-aws-minima-por-semana.md) | 4+ | Stack AWS mínima por semana, custos, Postgres container × RDS, ECS × EKS |
 | [`conceitos/cost-explorer.md`](conceitos/cost-explorer.md) | 5 | Cost Explorer, Budgets (alerta por e-mail), regra "subiu/testou/destruiu" |
@@ -59,6 +60,7 @@ Tutoriais com comandos. Cada arquivo é um exercício prático que você pode (e
 | [`praticas/18-cdk-iac.md`](praticas/18-cdk-iac.md) | Aula 11: **Infra como Código (AWS CDK)** — `cdk synth/deploy/destroy` das stacks em `infra/cdk/` |
 | [`praticas/19-servidores-ec2-grafana.md`](praticas/19-servidores-ec2-grafana.md) | Aula 12: **3 servidores EC2** (API + Frontend + Grafana) por script CLI e pela 7ª stack CDK; **link externo real** + auth |
 | [`praticas/20-cdk-python-por-dentro.md`](praticas/20-cdk-python-por-dentro.md) | Aula 11/12: **como o AWS CDK em Python funciona por dentro** — App/Stack/Construct, synth→CloudFormation, tour pelos arquivos |
+| [`praticas/21-seguranca-https-auth.md`](praticas/21-seguranca-https-auth.md) | Aula 12: **segurança na prática** — login→token JWT, rota protegida com/sem Bearer, `/api` como Server no Swagger, cert válido, Swagger com senha |
 | [`praticas/99-troubleshooting.md`](praticas/99-troubleshooting.md) | Erros comuns + como resolver |
 
 > 💡 **Os práticos não dependem todos uns dos outros.** Mas se está perdido,
@@ -128,6 +130,7 @@ docs/
     ├── 18-cdk-iac.md                   ← Semana 6 (Aula 11: AWS CDK / IaC)
     ├── 19-servidores-ec2-grafana.md    ← Semana 6 (Aula 12: 3 EC2 API/Front/Grafana)
     ├── 20-cdk-python-por-dentro.md     ← Semana 6 (Aula 11/12: CDK Python por dentro)
+    ├── 21-seguranca-https-auth.md      ← Semana 6 (Aula 12: login/token/HTTPS/Swagger c/ senha)
     └── 99-troubleshooting.md
 
 entrega-final/                          ← Aula 12 (fechamento)

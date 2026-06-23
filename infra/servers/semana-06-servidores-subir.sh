@@ -128,7 +128,10 @@ HASH=\$(/usr/local/bin/caddy hash-password --plaintext '$ADMIN_PASSWORD')
 printf 'CLOUDTASK_HASH=%s\n' "\$HASH" > /etc/caddy/caddy.env
 cat > /etc/caddy/Caddyfile <<'CADDY'
 {
-    email admin@example.com
+    # E-mail de contato do ACME. PRECISA de um TLD real e NÃO-reservado:
+    # ".local" e "example.com" são RECUSADOS pelo Let's Encrypt (forbidden/invalid
+    # public suffix) e forçam o fallback lento p/ ZeroSSL. ".app" passa.
+    email admin@cloudtask.app
 }
 __HOST__ {
     encode gzip

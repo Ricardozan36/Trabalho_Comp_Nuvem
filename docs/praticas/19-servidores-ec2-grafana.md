@@ -19,26 +19,33 @@
 
 ---
 
-## 1. O desenho (por que três servidores)
+## 1. O desenho (um Edge HTTPS na frente de três servidores)
 
-Até agora a API, o banco e os anexos rodavam juntos (no devcontainer ou num
-container só). Em produção a gente **separa responsabilidades** — cada peça
-escala e falha de forma independente:
+Até agora a API, o banco e os anexos rodavam juntos. Em produção a gente
+**separa responsabilidades** e coloca **um único ponto seguro** (o *Edge*) na
+frente — só ele fala com a internet, **em HTTPS com certificado válido**:
 
 ```text
-   navegador  ─►  Frontend EC2 (nginx)  ──chama──►  API EC2 (FastAPI + banco)
-   (você)          :80  serve o SPA                  :8000  /docs, /tasks, ...
-                                                         │
-   navegador  ─►  Grafana EC2  ──lê métricas──►  CloudWatch (da conta)
-   (você)          :3000                          (CPU, rede, DynamoDB, RDS)
+   navegador ──HTTPS (cert válido)──► EDGE (Caddy)  ──HTTP interno──►  API  (:8000)
+   (443)                              <ip>.sslip.io  ├─ /api/*      ──►  Grafana(:3000)
+                                      serve o SPA    └─ /grafana/*        │
+                                                                          └─► CloudWatch
 ```
 
-* **Frontend** — um `nginx` servindo o `frontend/index.html` (tela de login +
-  kanban de tarefas + anexos). No boot ele recebe a **URL pública da API**.
+* **Edge** — um **Caddy** que: serve o `frontend/index.html` (login + kanban +
+  anexos), faz **proxy** `/api`→API e `/grafana`→Grafana, e obtém **sozinho um
+  certificado válido** (HTTPS). Tem um **Elastic IP** + hostname `sslip.io`.
 * **API** — a mesma imagem Docker das aulas anteriores, agora com **login por
-  token (JWT)**. Usuário `admin`, senha `admin#123`.
-* **Grafana** — sobe já **provisionado**: um datasource **CloudWatch** (sem
-  chave fixa — usa a *role* do próprio EC2) e um dashboard com gráficos úteis.
+  token (JWT)**. Usuário `admin`, senha `admin#123`. **Não** fica exposta à
+  internet (porta 8000 só dentro do security group).
+* **Grafana** — sobe já **provisionado**: datasource **CloudWatch** (sem chave
+  fixa — usa a *role* do EC2) + um dashboard com gráficos, na home. Também só
+  acessível pelo Edge (`/grafana`).
+
+> Toda a parte de segurança (login/token, `/api` como Server, o **servidor de
+> certificado**, Swagger com senha) está detalhada na
+> [prática 21](21-seguranca-https-auth.md) e na teoria
+> [`seguranca-aula12-auth-proxy-cert.md`](../conceitos/seguranca-aula12-auth-proxy-cert.md).
 
 ---
 
@@ -78,18 +85,20 @@ O jeito mais direto de ver tudo no ar. Na raiz do repositório:
 bash infra/servers/semana-06-servidores-subir.sh
 ```
 
-O script: acha a AMI Amazon Linux 2023 mais nova, cria um **security group**
-(portas 22/80/3000/8000), e sobe os três EC2 — injetando a URL da API no
-frontend. No fim ele imprime algo assim:
+O script: acha a AMI Amazon Linux 2023 mais nova, aloca um **Elastic IP**, cria
+um **security group** (22/80/443 abertos; 8000/3000 **só dentro** do grupo) e
+sobe os três EC2 — gerando o Edge (Caddy) com o SPA e a config de TLS/proxy. No
+fim ele imprime algo assim:
 
 ```text
-  Frontend (abra este):  http://SEU_IP_FRONT/
-  API (Swagger):         http://SEU_IP_API:8000/docs
-  Grafana:               http://SEU_IP_GRAF:3000/   (admin / admin#123)
+  App (abra este):    https://SEU-IP.sslip.io/
+  Swagger (c/ senha): https://SEU-IP.sslip.io/api/docs   (admin / admin#123)
+  Grafana:            https://SEU-IP.sslip.io/grafana/   (admin / admin#123)
 ```
 
-Espere **~3–5 min** (a API faz `docker build` no primeiro boot) e abra o link do
-frontend. Login: `admin` / `admin#123`.
+Espere **~3–5 min** (a API faz `docker build`; o Caddy emite o certificado) e
+abra o link do **App**. Login: `admin` / `admin#123`. Tudo é **HTTPS** — `http://`
+redireciona para `https://`.
 
 > Os servidores usam o **`LabInstanceProfile`** (a *role* do laboratório, já
 > pronta) — por isso o Grafana lê o CloudWatch sem você configurar credencial.
@@ -128,9 +137,9 @@ detalhes em [como o CDK funciona por dentro](20-cdk-python-por-dentro.md)).
 
 ## 5. O que olhar no Grafana
 
-Abra `http://SEU_IP_GRAF:3000/` (admin / admin#123) → dashboard
-**“CloudTask — Infra (Academy)”**. Use o seletor **EC2 Instance** no topo para
-filtrar. Painéis:
+Abra `https://SEU-IP.sslip.io/grafana/` (admin / admin#123) → ele já entra no
+dashboard **“CloudTask — Infra (Academy)”** (definido como *home*). Use o seletor
+**EC2 Instance** no topo para filtrar. Painéis:
 
 * **CPU dos EC2 (%)** e **Rede de saída** — saúde das três máquinas.
 * **DynamoDB — capacidade consumida** — aparece quando a API grava eventos.
@@ -158,12 +167,14 @@ Confira no Console (EC2 → Instances; RDS → Databases) que **nada** ficou
 
 ## 7. Resumo
 
-| Peça | Servidor | Porta | Login |
+| Peça | Servidor | Acesso (público) | Login |
 | --- | --- | --- | --- |
-| Frontend (SPA) | `t3.micro` nginx | 80 | `admin` / `admin#123` |
-| API (FastAPI) | `t3.small` Docker | 8000 | token via `/auth/login` |
-| Grafana | `t3.small` | 3000 | `admin` / `admin#123` |
+| Edge (Caddy + SPA) | `t3.small` | `https://<ip>.sslip.io/` (443, **cert válido**) | `admin` / `admin#123` |
+| API (FastAPI) | `t3.small` Docker | só via Edge: `/api/...` (token Bearer) | token via `/api/auth/login` |
+| Grafana | `t3.small` | só via Edge: `/grafana/` | `admin` / `admin#123` |
 
-Você subiu uma arquitetura de **produção de verdade** — frontend, backend com
-autenticação e observabilidade — pelos **dois** caminhos (script e IaC),
-terminando a jornada **console → CLI → script → IaC** da disciplina.
+Você subiu uma arquitetura de **produção de verdade** — Edge HTTPS com
+certificado válido, backend com **autenticação por token** e observabilidade —
+pelos **dois** caminhos (script e IaC), terminando a jornada
+**console → CLI → script → IaC** da disciplina. A segurança em detalhe:
+[prática 21](21-seguranca-https-auth.md).
