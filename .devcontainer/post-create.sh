@@ -22,6 +22,14 @@ sudo mkdir -p /home/appuser/.aws /home/appuser/.kube
 sudo chown -R appuser:appuser /home/appuser/.aws /home/appuser/.kube || true
 chmod 700 /home/appuser/.aws /home/appuser/.kube || true
 
+# Cache do usuário GRAVÁVEL: o `jsii` (runtime do AWS CDK em Python) EXTRAI
+# módulos nativos para ~/.cache/aws/jsii e PRECISA escrever ali — senão o
+# `cdk synth` morre com "EACCES: permission denied, mkdir .../jsii/package-cache".
+# (E o cache do pip também mora aqui.) Em rebuilds essa pasta às vezes nasce
+# como root; devolvemos a posse ao appuser.
+sudo mkdir -p /home/appuser/.cache/aws/jsii /home/appuser/.cache/pip
+sudo chown -R appuser:appuser /home/appuser/.cache || true
+
 # Pasta do histórico do zsh, persistida num volume (ver devcontainer.json).
 # POR QUÊ: o histórico de comandos sobrevive a rebuilds do container.
 sudo mkdir -p /commandhistory

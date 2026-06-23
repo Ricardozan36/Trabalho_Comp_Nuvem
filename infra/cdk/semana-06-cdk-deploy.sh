@@ -26,6 +26,9 @@
 # =============================================================================
 set -euo pipefail
 
+# Silencia o aviso barulhento de "Node 20 end-of-life" do jsii (cosmético).
+export JSII_SILENCE_WARNING_DEPRECATED_NODE_VERSION=1
+
 ACTION="${1:-deploy}"
 REGION="${AWS_REGION:-us-east-1}"
 # Ordem de DEPLOY (dependências primeiro): Network antes do Database (VPC);
@@ -61,7 +64,10 @@ case "${ACTION}" in
     # idempotente (rápido se já existe).
     python3 -c "import aws_cdk" 2>/dev/null || {
       echo "==> instalando libs do CDK (aws-cdk-lib)..."
-      python3 -m pip install -q --user -r requirements.txt
+      # SEM --user: o pip escolhe o destino certo sozinho (em venv instala no
+      # venv; como appuser sem venv cai em ~/.local; o --user fixo QUEBRA dentro
+      # de um venv com "Can not perform a '--user' install").
+      python3 -m pip install -q -r requirements.txt
     }
     echo "==> cdk synth (gera os templates em cdk.out/)..."
     cdk synth >/dev/null

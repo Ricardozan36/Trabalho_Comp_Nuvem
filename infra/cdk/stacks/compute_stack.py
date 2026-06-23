@@ -198,9 +198,26 @@ class ComputeStack(Stack):
             )
         api = make("cloudtask-api", "t3.small", api_head + _body(_SERVERS / "userdata-api.sh"))
 
-        # Se há RDS, libera o acesso da API ao banco (5432 no SG do RDS).
+        # Se há RDS, libera 5432 no SG do RDS a partir do SG dos EC2.
+        # POR QUÊ um CfnSecurityGroupIngress AQUI (e não
+        # ``db.connections.allow_default_port_from(sg)``): aquele método criaria a
+        # regra DENTRO da DatabaseStack referenciando ESTA ComputeStack — e como
+        # a Compute também depende da Database (VPC/SG do RDS), vira dependência
+        # CIRCULAR. No deploy em ordem fixa (Database antes de Compute) isso
+        # falha com "No export named CloudTaskCompute:...DemoSg...". Criando a
+        # regra aqui (a Compute já depende da Database), a referência fica numa
+        # direção só e o deploy passa.
         if db is not None and hasattr(db, "connections"):
-            db.connections.allow_default_port_from(sg, "API EC2 -> RDS")
+            ec2.CfnSecurityGroupIngress(
+                self,
+                "ApiToRds",
+                group_id=db.connections.security_groups[0].security_group_id,
+                ip_protocol="tcp",
+                from_port=5432,
+                to_port=5432,
+                source_security_group_id=sg.security_group_id,
+                description="API EC2 -> RDS (5432)",
+            )
 
         # --- Grafana (subpath /grafana + dashboard como home) ---------------
         dash_b64 = base64.b64encode(
