@@ -79,6 +79,54 @@ case "${ACTION}" in
       aws cloudformation describe-stacks --stack-name "${s}" --region "${REGION}" \
         --query "Stacks[0].Outputs" --output table 2>/dev/null || true
     done
+
+    # --- Resumo final: links dos serviços + token JWT para o Swagger ----------
+    # Lê os Outputs da ComputeStack (os 3 EC2), espera a API responder (a 1a
+    # build leva ~3-5 min) e faz login (admin/admin#123) para imprimir o token
+    # Bearer que ativa as rotas protegidas no Swagger (botão Authorize).
+    out() { aws cloudformation describe-stacks --stack-name CloudTaskCompute --region "${REGION}" \
+      --query "Stacks[0].Outputs[?OutputKey=='$1'].OutputValue | [0]" --output text 2>/dev/null || true; }
+    FRONT_URL="$(out FrontendUrl)"; API_URL="$(out ApiUrl)"; GRAF_URL="$(out GrafanaUrl)"
+    API_BASE="${API_URL%/docs}"   # de http://IP:8000/docs -> http://IP:8000
+
+    echo
+    echo "============================================================"
+    echo "  CloudTask AI SaaS — serviços no ar"
+    echo "------------------------------------------------------------"
+    echo "  App (frontend):  ${FRONT_URL}"
+    echo "  API (Swagger):   ${API_URL}"
+    echo "  Grafana:         ${GRAF_URL}   (admin / admin#123)"
+    echo
+    echo "  Aguardando a API responder (1ª build do Docker leva ~3-5 min)..."
+    TOKEN=""
+    if [ -n "${API_BASE}" ] && [ "${API_BASE}" != "None" ]; then
+      for _ in $(seq 1 28); do
+        if curl -fsS -m 5 "${API_BASE}/health" >/dev/null 2>&1; then
+          TOKEN="$(curl -fsS -m 8 -X POST "${API_BASE}/auth/login" \
+            -H 'Content-Type: application/json' \
+            -d '{"username":"admin","password":"admin#123"}' \
+            | sed -E 's/.*"access_token":"([^"]+)".*/\1/' || true)"
+          break
+        fi
+        sleep 15
+      done
+    fi
+    echo
+    if [ -n "${TOKEN}" ]; then
+      echo "  🔑 Token Bearer (JWT) — cole em 'Authorize' no Swagger:"
+      echo
+      echo "      ${TOKEN}"
+      echo
+      echo "  No Swagger (${API_URL}): botão 'Authorize' → cole o token → Authorize."
+      echo "  Aí as rotas protegidas (/tasks, /uploads, /events) passam a funcionar."
+    else
+      echo "  ⏳ A API ainda não respondeu. Assim que subir, pegue o token com:"
+      echo
+      echo "      curl -s -X POST ${API_BASE}/auth/login -H 'Content-Type: application/json' \\"
+      echo "        -d '{\"username\":\"admin\",\"password\":\"admin#123\"}'"
+    fi
+    echo "  Login do app/Grafana: admin / admin#123"
+    echo "============================================================"
     echo "✅ Stacks no ar. Ao terminar:  ./semana-06-cdk-deploy.sh destroy"
     ;;
   destroy)
