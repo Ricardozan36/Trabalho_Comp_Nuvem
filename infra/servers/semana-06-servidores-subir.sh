@@ -128,7 +128,7 @@ HASH=\$(/usr/local/bin/caddy hash-password --plaintext '$ADMIN_PASSWORD')
 printf 'CLOUDTASK_HASH=%s\n' "\$HASH" > /etc/caddy/caddy.env
 cat > /etc/caddy/Caddyfile <<'CADDY'
 {
-    email admin@cloudtask.local
+    email admin@example.com
 }
 __HOST__ {
     encode gzip
