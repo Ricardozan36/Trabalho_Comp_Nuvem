@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CloudTask AI - Login</title>
     <style>
-        /* Fundo principal em um tom grafite/chumbo escuro */
         body {
             background-color: #121214; 
             color: #e1e1e6;
@@ -17,7 +16,6 @@
             margin: 0;
         }
 
-        /* Card com bordas mais sutis e um detalhe superior colorido */
         .login-card {
             background-color: #202024;
             padding: 40px;
@@ -25,10 +23,9 @@
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
             text-align: center;
             width: 320px;
-            border-top: 4px solid #8257e5; /* Linha de destaque roxa */
+            border-top: 4px solid #8257e5;
         }
 
-        /* Estilo do título com duas cores */
         .login-card h1 {
             color: #e1e1e6;
             margin-top: 0;
@@ -37,9 +34,7 @@
             letter-spacing: 1px;
         }
 
-        .login-card h1 span {
-            color: #8257e5; /* Destaque apenas no 'AI' */
-        }
+        .login-card h1 span { color: #8257e5; }
 
         .login-card p {
             color: #a8a8b3;
@@ -48,7 +43,6 @@
             line-height: 1.5;
         }
 
-        /* Campos de texto mais quadrados e escuros */
         input {
             width: 100%;
             padding: 12px 14px;
@@ -62,13 +56,11 @@
             transition: all 0.3s;
         }
 
-        /* Efeito ao clicar no campo de texto */
         input:focus {
             border-color: #8257e5;
             box-shadow: 0 0 0 1px #8257e5;
         }
 
-        /* Botão com efeito de clique */
         button {
             width: 100%;
             padding: 14px;
@@ -83,29 +75,12 @@
             margin-bottom: 20px;
         }
 
-        button:hover {
-            background-color: #996dff;
-        }
-        
-        button:active {
-            transform: scale(0.98); /* Dá uma leve "afundada" ao clicar */
-        }
+        button:hover { background-color: #996dff; }
+        button:active { transform: scale(0.98); }
 
-        .register-link {
-            color: #a8a8b3;
-            font-size: 14px;
-        }
-
-        .register-link span {
-            color: #8257e5;
-            cursor: pointer;
-            font-weight: bold;
-        }
-        
-        .register-link span:hover {
-            color: #996dff;
-            text-decoration: underline;
-        }
+        .register-link { color: #a8a8b3; font-size: 14px; }
+        .register-link span { color: #8257e5; cursor: pointer; font-weight: bold; }
+        .register-link span:hover { color: #996dff; text-decoration: underline; }
     </style>
 </head>
 <body>
@@ -117,7 +92,7 @@
         <input type="email" placeholder="E-mail de acesso" id="emailInput">
         <input type="password" placeholder="Sua senha" id="senhaInput">
 
-        <button onclick="simularLogin()">Acessar Plataforma</button>
+        <button onclick="fazerLogin()">Acessar Plataforma</button>
 
         <div class="register-link">
             Novo por aqui? <span>Crie sua conta</span>
@@ -125,10 +100,35 @@
     </div>
 
     <script>
-        function simularLogin() {
-            window.location.href = 'dashboard.html';
+        async function fazerLogin() {
+            const email = document.getElementById('emailInput').value;
+            const password = document.getElementById('senhaInput').value;
+
+            // Criamos um FormData porque o FastAPI OAuth2PasswordRequestForm espera form-urlencoded
+            const formData = new FormData();
+            formData.append('username', email);
+            formData.append('password', password);
+
+            try {
+                const response = await fetch('/token', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    // Guardamos o token no navegador
+                    localStorage.setItem('access_token', data.access_token);
+                    // Redireciona
+                    window.location.href = '/dashboard.html';
+                } else {
+                    alert('Falha no login: Verifique seu e-mail e senha.');
+                }
+            } catch (error) {
+                console.error('Erro de conexão:', error);
+                alert('Erro ao conectar com a API.');
+            }
         }
     </script>
-
 </body>
 </html>

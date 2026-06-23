@@ -1,7 +1,3 @@
-# =============================================================================
-# Dockerfile — CloudTask AI SaaS
-# =============================================================================
-
 # ---------- Estágio comum: runtime mínimo ----------------------------------
 FROM public.ecr.aws/docker/library/python:3.11-slim AS base
 
@@ -22,7 +18,7 @@ RUN apt-get update \
 WORKDIR /app
 ENTRYPOINT ["/usr/bin/tini", "--"]
 
-# ---------- Builders: instalam dependências em camadas --------------------
+# ---------- Builders: instalam dependências --------------------
 FROM base AS builder-prod
 COPY requirements.txt .
 RUN pip install --no-cache-dir --user -r requirements.txt
@@ -40,30 +36,30 @@ FROM base AS prod
 
 COPY --from=builder-prod --chown=appuser:appuser /root/.local /home/appuser/.local
 
-# Copia TUDO do diretório atual da máquina para o diretório de trabalho do container (/app)
+# 1. Copia o código e configurações (inclui app/ e static/)
 COPY --chown=appuser:appuser . .
+
+# 2. Copia EXPLICITAMENTE a pasta static para garantir que ela existe no destino
+COPY --chown=appuser:appuser ./static/ /app/static/
 
 USER appuser
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD python -c "import urllib.request,sys; \
-      sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status == 200 else 1)"
+     sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status == 200 else 1)"
 
 CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${APP_PORT} --proxy-headers --forwarded-allow-ips='*'"]
 
 # ---------- Target final: TEST ---------------------------------------------
 FROM base AS test
-
 COPY --from=builder-test --chown=appuser:appuser /root/.local /home/appuser/.local
 COPY --chown=appuser:appuser . .
-
 USER appuser
 CMD ["pytest", "-q"]
 
 # ---------- Target final: DEV ----------------------------------------------
 FROM base AS dev
-
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       sudo nodejs npm \
@@ -73,6 +69,7 @@ RUN apt-get update \
  && chmod 0440 /etc/sudoers.d/appuser
 
 COPY --from=builder-dev --chown=appuser:appuser /root/.local /home/appuser/.local
+COPY --chown=appuser:appuser . .
 
 USER appuser
 EXPOSE 8000 5678
