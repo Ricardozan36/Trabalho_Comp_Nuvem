@@ -30,14 +30,21 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from collections.abc import AsyncGenerator
 
-from fastapi import FastAPI, Request, Response, status
+from fastapi import Depends, FastAPI, Request, Response, status
 from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__
-from app.api import routes_events, routes_health, routes_tasks, routes_uploads
+from app.api import (
+    routes_auth,
+    routes_events,
+    routes_health,
+    routes_tasks,
+    routes_uploads,
+)
 from app.core.config import settings
+from app.core.security import require_auth
 from app.db.database import Base, engine
 from app.schemas import RootResponse
 
@@ -198,10 +205,17 @@ app = FastAPI(
 )
 
 # Registra os routers na aplicação.
+# /health e /auth são PÚBLICOS (probes e login não podem exigir token).
 app.include_router(routes_health.router)
-app.include_router(routes_tasks.router)
-app.include_router(routes_uploads.router)
-app.include_router(routes_events.router)
+app.include_router(routes_auth.router)
+
+# Rotas de DADOS protegidas: exigem `Authorization: Bearer <token>` (Aula 12).
+# `dependencies=[Depends(require_auth)]` no include_router aplica a guarda a
+# TODAS as rotas do router de uma vez, sem editar cada endpoint.
+_auth = [Depends(require_auth)]
+app.include_router(routes_tasks.router, dependencies=_auth)
+app.include_router(routes_uploads.router, dependencies=_auth)
+app.include_router(routes_events.router, dependencies=_auth)
 
 
 # ---------------------------------------------------------------------------

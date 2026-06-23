@@ -3,239 +3,312 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>CloudTask AI SaaS — Frontend</title>
+<title>CloudTask AI SaaS</title>
 <!--
-  Frontend SPA (Aula 12) — interface real para a API do CloudTask.
-  POR QUÊ vanilla HTML/JS (sem build/React): o projeto não foca em código de
-  frontend; um único arquivo estático é fácil de servir (nginx) e de entender.
-  Chama a API por fetch. A URL da API é configurável (engrenagem no topo) e
-  persistida no localStorage — o launch substitui __API_BASE__ pelo IP real.
+  Frontend SPA (Aula 12) — interface estilo app real para a API do CloudTask.
+  Telas: LOGIN -> DASHBOARD (kanban). Auth por JWT (admin / admin#123): o login
+  guarda o token e o envia em Authorization: Bearer nas chamadas. Anexos por
+  tarefa (incluir/abrir/apagar); o vínculo tarefa↔arquivo fica no localStorage
+  (demo) — em produção seria uma tabela no banco.
+  Vanilla HTML/JS, um arquivo só, servido por nginx.
 -->
 <style>
-:root{--bg:#0b1120;--panel:#111a2e;--card:#1b2741;--ink:#e7eefc;--muted:#93a4c4;
---accent:#38bdf8;--accent2:#a855f7;--ok:#22c55e;--warn:#f59e0b;--hi:#ef4444;--line:#26334f}
+:root{--bg:#0a0f1e;--panel:#111a2e;--panel2:#0c1426;--card:#1a2540;--ink:#e8eefc;
+--muted:#90a1c2;--accent:#38bdf8;--accent2:#7c3aed;--ok:#22c55e;--warn:#f59e0b;--hi:#ef4444;--line:#243352}
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:system-ui,Segoe UI,sans-serif;background:radial-gradient(1200px 600px at 70% -10%,#16224010,#0000),var(--bg);color:var(--ink);line-height:1.5;min-height:100vh}
-header{background:#070d1b;border-bottom:1px solid var(--line);padding:12px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;position:sticky;top:0;z-index:5}
-header h1{font-size:18px;font-weight:800}
-header .logo{color:var(--accent)}
-.status{font-size:12px;padding:4px 10px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
-.status.ok{color:var(--ok);border-color:#1f4533}.status.err{color:var(--hi);border-color:#4a2330}
-.spacer{flex:1}
-button{font:inherit;cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:8px 12px;border-radius:8px}
-button.primary{background:var(--accent);color:#04121f;border:0;font-weight:700}
+body{font-family:system-ui,Segoe UI,sans-serif;background:
+radial-gradient(900px 500px at 85% -10%,#2a1d5510,#0000),
+radial-gradient(900px 500px at 0% 0%,#0b3a5510,#0000),var(--bg);color:var(--ink);min-height:100vh}
+button{font:inherit;cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:8px 12px;border-radius:9px;transition:.12s}
+button:hover{filter:brightness(1.12)}
+button.primary{background:linear-gradient(90deg,var(--accent),#0ea5e9);color:#04121f;border:0;font-weight:800}
 button.ghost{background:transparent}
-button:hover{filter:brightness(1.1)}
-input,select,textarea{font:inherit;background:#0c1426;border:1px solid var(--line);color:var(--ink);padding:9px 11px;border-radius:8px;width:100%}
-main{max-width:1200px;margin:18px auto;padding:0 16px;display:grid;gap:18px}
-.row{display:grid;gap:16px;grid-template-columns:1.1fr .9fr}
-@media(max-width:900px){.row{grid-template-columns:1fr}}
-.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px}
-.panel h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:12px;display:flex;align-items:center;gap:8px}
-.newtask{display:grid;gap:8px;grid-template-columns:2fr 1fr auto;align-items:start}
-@media(max-width:700px){.newtask{grid-template-columns:1fr}}
-.board{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
-@media(max-width:900px){.board{grid-template-columns:1fr}}
-.col{background:#0c1426;border:1px solid var(--line);border-radius:12px;padding:10px;min-height:120px}
-.col h3{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:10px;display:flex;justify-content:space-between}
-.count{background:#10203a;color:var(--muted);border-radius:999px;padding:0 8px;font-size:11px}
-.card{background:var(--card);border-radius:10px;padding:10px;margin-bottom:9px;border-left:4px solid var(--accent)}
-.card.p-high{border-left-color:var(--hi)}.card.p-medium{border-left-color:var(--warn)}.card.p-low{border-left-color:var(--ok)}
-.card h4{font-size:14px;margin-bottom:4px;word-break:break-word}
-.card p{font-size:12.5px;color:var(--muted);word-break:break-word}
-.pill{display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:999px;margin-top:7px}
-.p-high .pill{background:rgba(239,68,68,.18);color:var(--hi)}
-.p-medium .pill{background:rgba(245,158,11,.18);color:var(--warn)}
-.p-low .pill{background:rgba(34,197,94,.18);color:var(--ok)}
-.cardbtns{display:flex;gap:6px;margin-top:9px;flex-wrap:wrap}
-.cardbtns button{padding:4px 8px;font-size:12px}
-.events{max-height:340px;overflow:auto;display:flex;flex-direction:column;gap:8px}
-.evt{background:#0c1426;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12.5px}
-.evt .t{color:var(--accent);font-weight:700}.evt .ts{color:var(--muted);font-size:11px}
-.up{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.uplist{margin-top:10px;display:flex;flex-direction:column;gap:6px;font-size:12.5px}
-.uplist a{color:var(--accent)}
+button.danger{border-color:#5a2530;color:#fda4af}
+button.icon{padding:5px 8px;font-size:13px}
+input,select,textarea{font:inherit;background:var(--panel2);border:1px solid var(--line);color:var(--ink);padding:10px 12px;border-radius:9px;width:100%}
+label{font-size:12px;color:var(--muted);display:block;margin:8px 0 4px}
+.hidden{display:none!important}
 .muted{color:var(--muted)}
-dialog{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:14px;padding:16px;width:min(420px,92vw)}
-dialog::backdrop{background:#02060ccc}
-.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#0c1426;border:1px solid var(--line);padding:10px 16px;border-radius:10px;font-size:13px;opacity:0;transition:.2s;pointer-events:none}
+
+/* LOGIN */
+#login{min-height:100vh;display:grid;place-items:center;padding:20px}
+.loginbox{width:min(380px,94vw);background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:26px;box-shadow:0 20px 60px #0008}
+.brand{font-size:22px;font-weight:900;text-align:center;margin-bottom:4px}
+.brand .l{color:var(--accent)}
+.sub{text-align:center;color:var(--muted);font-size:13px;margin-bottom:18px}
+.loginbox button{width:100%;margin-top:16px;padding:11px}
+.hint{margin-top:14px;text-align:center;font-size:12px;color:var(--muted)}
+.err{color:#fda4af;font-size:13px;margin-top:10px;min-height:18px;text-align:center}
+
+/* APP */
+#app{display:none;min-height:100vh;flex-direction:column}
+header{background:#070d1b;border-bottom:1px solid var(--line);padding:11px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:6}
+header .brand{font-size:17px;text-align:left}
+.who{font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:4px 10px}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--ok);margin-right:6px}
+.dot.off{background:var(--hi)}
+.spacer{flex:1}
+.toolbar{max-width:1240px;margin:16px auto 0;padding:0 16px;width:100%;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.toolbar h2{font-size:15px;margin-right:auto}
+main{max-width:1240px;margin:14px auto;padding:0 16px;width:100%}
+.board{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+@media(max-width:980px){.board{grid-template-columns:1fr}}
+.col{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px;min-height:160px}
+.col h3{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:12px;display:flex;justify-content:space-between;align-items:center}
+.count{background:#10203a;color:var(--muted);border-radius:999px;padding:1px 9px;font-size:11px}
+.card{background:var(--card);border-radius:12px;padding:12px;margin-bottom:11px;border-left:4px solid var(--accent)}
+.card.p-high{border-left-color:var(--hi)}.card.p-medium{border-left-color:var(--warn)}.card.p-low{border-left-color:var(--ok)}
+.card h4{font-size:14.5px;margin-bottom:5px;word-break:break-word}
+.card .desc{font-size:12.5px;color:var(--muted);word-break:break-word;margin-bottom:8px}
+.meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.pill{font-size:10px;font-weight:800;padding:2px 8px;border-radius:999px}
+.p-high .pill{background:rgba(239,68,68,.18);color:#fda4af}
+.p-medium .pill{background:rgba(245,158,11,.18);color:#fcd34d}
+.p-low .pill{background:rgba(34,197,94,.18);color:#86efac}
+.att-badge{font-size:11px;color:var(--muted)}
+.cardbtns{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+
+/* MODAL */
+dialog{margin:auto;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:16px;padding:0;width:min(460px,94vw)}
+dialog::backdrop{background:#02060ccc;backdrop-filter:blur(2px)}
+.dlg-h{padding:16px 18px;border-bottom:1px solid var(--line);font-weight:800;display:flex;justify-content:space-between;align-items:center}
+.dlg-b{padding:16px 18px}
+.dlg-f{padding:14px 18px;border-top:1px solid var(--line);display:flex;gap:10px;justify-content:flex-end}
+.attrow{display:flex;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:8px 10px;margin-bottom:8px;font-size:13px}
+.attrow .name{flex:1;word-break:break-all}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#0c1426;border:1px solid var(--line);padding:10px 16px;border-radius:10px;font-size:13px;opacity:0;transition:.2s;pointer-events:none;z-index:50}
 .toast.show{opacity:1}
-footer{text-align:center;color:var(--muted);font-size:12px;padding:22px}
+footer{text-align:center;color:var(--muted);font-size:12px;padding:20px}
 </style>
 </head>
 <body>
-<header>
-  <h1><span class="logo">&#9729; CloudTask</span> AI SaaS</h1>
-  <span id="conn" class="status">conectando…</span>
-  <span class="spacer"></span>
-  <span class="muted" id="apiLabel" style="font-size:12px"></span>
-  <button class="ghost" onclick="openCfg()">&#9881; API</button>
-  <button class="ghost" onclick="loadAll()">&#8635; Atualizar</button>
-</header>
 
-<main>
-  <!-- Nova tarefa -->
-  <section class="panel">
-    <h2>Nova tarefa</h2>
-    <div class="newtask">
-      <input id="t-title" placeholder="Título da tarefa" maxlength="200">
-      <select id="t-prio">
-        <option value="low">Prioridade: baixa</option>
-        <option value="medium" selected>Prioridade: média</option>
-        <option value="high">Prioridade: alta</option>
-      </select>
-      <button class="primary" onclick="createTask()">Adicionar</button>
-      <textarea id="t-desc" placeholder="Descrição (opcional)" rows="1" style="grid-column:1/-1"></textarea>
-    </div>
-  </section>
+<!-- ===================== LOGIN ===================== -->
+<section id="login">
+  <form class="loginbox" onsubmit="event.preventDefault();doLogin()">
+    <div class="brand"><span class="l">&#9729; CloudTask</span> AI SaaS</div>
+    <div class="sub">Entre para acessar o painel</div>
+    <label>Usuário</label>
+    <input id="lg-user" value="admin" autocomplete="username">
+    <label>Senha</label>
+    <input id="lg-pass" type="password" value="admin#123" autocomplete="current-password">
+    <button class="primary" type="submit">Entrar</button>
+    <div class="err" id="lg-err"></div>
+    <div class="hint">Demo: <b>admin</b> / <b>admin#123</b> &middot; <a href="#" onclick="openCfg();return false" style="color:var(--accent)">configurar API</a></div>
+  </form>
+</section>
 
-  <!-- Kanban -->
-  <section class="panel">
+<!-- ===================== APP ===================== -->
+<div id="app">
+  <header>
+    <div class="brand"><span class="l">&#9729; CloudTask</span> AI SaaS</div>
+    <span class="who"><span class="dot off" id="dot"></span><span id="whoami">—</span></span>
+    <span class="spacer"></span>
+    <span class="muted" id="apiLabel" style="font-size:12px"></span>
+    <button class="ghost icon" onclick="openCfg()">&#9881;</button>
+    <button class="ghost icon" onclick="loadAll()">&#8635;</button>
+    <button class="ghost icon" onclick="logout()">Sair</button>
+  </header>
+
+  <div class="toolbar">
     <h2>Quadro de tarefas</h2>
+    <button class="primary" onclick="openNew()">+ Nova tarefa</button>
+  </div>
+
+  <main>
     <div class="board">
       <div class="col"><h3>A fazer <span class="count" id="c-pending">0</span></h3><div id="col-pending"></div></div>
       <div class="col"><h3>Fazendo <span class="count" id="c-in_progress">0</span></h3><div id="col-in_progress"></div></div>
       <div class="col"><h3>Feito <span class="count" id="c-done">0</span></h3><div id="col-done"></div></div>
     </div>
-  </section>
+  </main>
+  <footer>CloudTask AI SaaS &middot; demonstração de produção (Aula 12) &middot; Computação em Nuvem / UNINTER</footer>
+</div>
 
-  <div class="row">
-    <!-- Uploads -->
-    <section class="panel">
-      <h2>Uploads (S3 ou local)</h2>
-      <div class="up">
-        <input type="file" id="file" style="flex:1">
-        <button class="primary" onclick="uploadFile()">Enviar</button>
-      </div>
-      <div class="uplist" id="uplist"><span class="muted">Nenhum upload nesta sessão.</span></div>
-    </section>
-
-    <!-- Eventos -->
-    <section class="panel">
-      <h2>Eventos / logs (DynamoDB ou JSON)</h2>
-      <div class="events" id="events"><span class="muted">Carregando…</span></div>
-    </section>
+<!-- Modal: nova/editar tarefa -->
+<dialog id="dlgTask">
+  <div class="dlg-h"><span id="dlgTaskTitle">Nova tarefa</span><button class="ghost icon" onclick="dlgTask.close()">&times;</button></div>
+  <div class="dlg-b">
+    <input type="hidden" id="f-id">
+    <label>Título *</label>
+    <input id="f-title" maxlength="200" placeholder="Ex.: Provisionar infra com CDK">
+    <label>Descrição</label>
+    <textarea id="f-desc" rows="3" placeholder="Detalhes (opcional)"></textarea>
+    <label>Prioridade</label>
+    <select id="f-prio">
+      <option value="low">Baixa</option><option value="medium" selected>Média</option><option value="high">Alta</option>
+    </select>
+    <label>Status</label>
+    <select id="f-status">
+      <option value="pending">A fazer</option><option value="in_progress">Fazendo</option><option value="done">Feito</option>
+    </select>
   </div>
-</main>
+  <div class="dlg-f"><button class="ghost" onclick="dlgTask.close()">Cancelar</button><button class="primary" onclick="saveTask()">Salvar</button></div>
+</dialog>
 
-<footer>CloudTask AI SaaS &middot; frontend de demonstração (Aula 12) &middot; Computação em Nuvem / UNINTER</footer>
-
-<dialog id="cfg">
-  <h2 style="margin-bottom:10px">Endpoint da API</h2>
-  <p class="muted" style="font-size:12.5px;margin-bottom:10px">Ex.: <code>http://&lt;IP-DA-API&gt;:8000</code>. Fica salvo no seu navegador.</p>
-  <input id="cfg-url" placeholder="http://...:8000">
-  <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end">
-    <button class="ghost" onclick="cfg.close()">Cancelar</button>
-    <button class="primary" onclick="saveCfg()">Salvar</button>
+<!-- Modal: anexos -->
+<dialog id="dlgAtt">
+  <div class="dlg-h"><span id="dlgAttTitle">Anexos</span><button class="ghost icon" onclick="dlgAtt.close()">&times;</button></div>
+  <div class="dlg-b">
+    <div id="attList"></div>
+    <label>Incluir anexo</label>
+    <div style="display:flex;gap:8px"><input type="file" id="attFile"><button class="primary" onclick="addAtt()">Enviar</button></div>
   </div>
+  <div class="dlg-f"><button class="ghost" onclick="dlgAtt.close()">Fechar</button></div>
+</dialog>
+
+<!-- Modal: config API -->
+<dialog id="dlgCfg">
+  <div class="dlg-h">Endpoint da API<button class="ghost icon" onclick="dlgCfg.close()">&times;</button></div>
+  <div class="dlg-b"><label>URL (ex.: http://&lt;IP&gt;:8000)</label><input id="cfg-url"></div>
+  <div class="dlg-f"><button class="ghost" onclick="dlgCfg.close()">Cancelar</button><button class="primary" onclick="saveCfg()">Salvar</button></div>
 </dialog>
 
 <div class="toast" id="toast"></div>
 
 <script>
-// --- URL da API: __API_BASE__ é trocado pelo launch; senão localStorage; senão heurística.
-const BAKED = "__API_BASE__";
-let API = localStorage.getItem("cloudtask_api")
-  || (BAKED && !BAKED.startsWith("__") ? BAKED : "")
-  || (location.protocol + "//" + location.hostname + ":8000");
-
-const $ = s => document.querySelector(s);
-const PRIOS = {high:"alta", medium:"média", low:"baixa"};
-
-function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2200);}
-function setApiLabel(){$("#apiLabel").textContent="API: "+API;}
-function openCfg(){$("#cfg-url").value=API;cfg.showModal();}
-function saveCfg(){API=$("#cfg-url").value.trim().replace(/\/$/,"");localStorage.setItem("cloudtask_api",API);cfg.close();setApiLabel();loadAll();}
-
-async function api(path,opts){
-  const r = await fetch(API+path, opts);
-  if(!r.ok){let d="";try{d=JSON.stringify(await r.json());}catch{}; throw new Error(r.status+" "+d);}
-  return r.status===204 ? null : r.json();
-}
-
-async function ping(){
-  try{ await api("/health"); $("#conn").textContent="online"; $("#conn").className="status ok"; return true; }
-  catch{ $("#conn").textContent="offline (configure a API)"; $("#conn").className="status err"; return false; }
-}
-
-// ---------- Tarefas ----------
-function card(t){
-  const d=document.createElement("div");
-  d.className="card p-"+t.priority;
-  d.innerHTML=`<h4>#${t.id} ${escapeHtml(t.title)}</h4>
-    ${t.description?`<p>${escapeHtml(t.description)}</p>`:""}
-    <span class="pill">${PRIOS[t.priority]||t.priority}</span>
-    <div class="cardbtns">
-      ${t.status!=="pending"?`<button onclick="move(${t.id},'${prev(t.status)}')">←</button>`:""}
-      ${t.status!=="done"?`<button onclick="move(${t.id},'${next(t.status)}')">→</button>`:""}
-      <button onclick="editTask(${t.id})">editar</button>
-      <button onclick="delTask(${t.id})">excluir</button>
-    </div>`;
-  return d;
-}
+const $=s=>document.querySelector(s);
+const PRIOS={high:"alta",medium:"média",low:"baixa"};
 const order=["pending","in_progress","done"];
 const next=s=>order[Math.min(order.indexOf(s)+1,2)];
 const prev=s=>order[Math.max(order.indexOf(s)-1,0)];
 
+const BAKED="__API_BASE__";
+let API=localStorage.getItem("cloudtask_api")||(BAKED&&!BAKED.startsWith("__")?BAKED:"")||(location.protocol+"//"+location.hostname+":8000");
+let TOKEN=localStorage.getItem("cloudtask_token")||"";
+let ATT=JSON.parse(localStorage.getItem("cloudtask_att")||"{}"); // {taskId:[filenames]}
+
+function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2300);}
+function esc(s){return (s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+function saveAtt(){localStorage.setItem("cloudtask_att",JSON.stringify(ATT));}
+function setApiLabel(){$("#apiLabel").textContent="API: "+API;}
+function openCfg(){$("#cfg-url").value=API;dlgCfg.showModal();}
+function saveCfg(){API=$("#cfg-url").value.trim().replace(/\/$/,"");localStorage.setItem("cloudtask_api",API);dlgCfg.close();setApiLabel();if(TOKEN)loadAll();}
+
+// ---- API helper (injeta Bearer; 401 -> volta ao login) ----
+async function api(path,opts={}){
+  const h=Object.assign({},opts.headers||{});
+  if(TOKEN)h["Authorization"]="Bearer "+TOKEN;
+  const r=await fetch(API+path,Object.assign({},opts,{headers:h}));
+  if(r.status===401){logout();throw new Error("sessão expirada");}
+  if(!r.ok){let d="";try{d=JSON.stringify(await r.json());}catch{}; throw new Error(r.status+" "+d);}
+  return r.status===204?null:r.json();
+}
+
+// ---- Login ----
+async function doLogin(){
+  $("#lg-err").textContent="";
+  try{
+    const r=await fetch(API+"/auth/login",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({username:$("#lg-user").value,password:$("#lg-pass").value})});
+    if(!r.ok){$("#lg-err").textContent=r.status===401?"Usuário ou senha inválidos.":"Erro "+r.status;return;}
+    const d=await r.json(); TOKEN=d.access_token; localStorage.setItem("cloudtask_token",TOKEN);
+    showApp();
+  }catch(e){$("#lg-err").textContent="Não foi possível conectar à API. Configure a URL.";}
+}
+function logout(){TOKEN="";localStorage.removeItem("cloudtask_token");$("#app").style.display="none";$("#login").style.display="grid";}
+async function showApp(){
+  $("#login").style.display="none";$("#app").style.display="flex";setApiLabel();
+  try{const me=await api("/auth/me");$("#whoami").textContent=me.username;}catch{$("#whoami").textContent="admin";}
+  loadAll();
+}
+
+// ---- Health dot ----
+async function ping(){try{await fetch(API+"/health");$("#dot").className="dot";}catch{$("#dot").className="dot off";}}
+
+// ---- Tarefas ----
+function attCount(id){return (ATT[id]||[]).length;}
+function card(t){
+  const d=document.createElement("div");d.className="card p-"+t.priority;
+  d.innerHTML=`<h4>#${t.id} ${esc(t.title)}</h4>
+    ${t.description?`<div class="desc">${esc(t.description)}</div>`:""}
+    <div class="meta"><span class="pill">${PRIOS[t.priority]||t.priority}</span>
+      <span class="att-badge">&#128206; ${attCount(t.id)} anexo(s)</span></div>
+    <div class="cardbtns">
+      ${t.status!=="pending"?`<button class="icon" title="voltar" onclick="move(${t.id},'${prev(t.status)}')">&#8592;</button>`:""}
+      ${t.status!=="done"?`<button class="icon" title="avançar" onclick="move(${t.id},'${next(t.status)}')">&#8594;</button>`:""}
+      <button class="icon" onclick="openAtt(${t.id},'${esc(t.title)}')">&#128206; Anexos</button>
+      <button class="icon" onclick="openEdit(${t.id})">Editar</button>
+      <button class="icon danger" onclick="delTask(${t.id})">Excluir</button>
+    </div>`;
+  return d;
+}
+let TASKS=[];
 async function loadTasks(){
   const cols={pending:$("#col-pending"),in_progress:$("#col-in_progress"),done:$("#col-done")};
   Object.values(cols).forEach(c=>c.innerHTML="");
-  const counts={pending:0,in_progress:0,done:0};
+  const cnt={pending:0,in_progress:0,done:0};
   try{
-    const tasks = await api("/tasks?limit=100");
-    tasks.forEach(t=>{(cols[t.status]||cols.pending).appendChild(card(t));counts[t.status]=(counts[t.status]||0)+1;});
-  }catch(e){toast("Erro ao listar tarefas: "+e.message);}
-  for(const s of order) $("#c-"+s).textContent=counts[s];
+    TASKS=await api("/tasks?limit=100");
+    TASKS.forEach(t=>{(cols[t.status]||cols.pending).appendChild(card(t));cnt[t.status]=(cnt[t.status]||0)+1;});
+  }catch(e){toast("Erro ao listar: "+e.message);}
+  order.forEach(s=>$("#c-"+s).textContent=cnt[s]);
 }
-async function createTask(){
-  const title=$("#t-title").value.trim(); if(!title)return toast("Informe um título.");
+function openNew(){$("#dlgTaskTitle").textContent="Nova tarefa";$("#f-id").value="";$("#f-title").value="";$("#f-desc").value="";$("#f-prio").value="medium";$("#f-status").value="pending";dlgTask.showModal();$("#f-title").focus();}
+function openEdit(id){const t=TASKS.find(x=>x.id===id);if(!t)return;$("#dlgTaskTitle").textContent="Editar tarefa #"+id;$("#f-id").value=id;$("#f-title").value=t.title;$("#f-desc").value=t.description||"";$("#f-prio").value=t.priority;$("#f-status").value=t.status;dlgTask.showModal();}
+async function saveTask(){
+  const id=$("#f-id").value, title=$("#f-title").value.trim();
+  if(!title)return toast("Informe um título.");
+  const body={title,description:$("#f-desc").value.trim()||null,priority:$("#f-prio").value,status:$("#f-status").value};
   try{
-    await api("/tasks",{method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({title,description:$("#t-desc").value.trim()||null,priority:$("#t-prio").value,status:"pending"})});
-    $("#t-title").value="";$("#t-desc").value="";
-    toast("Tarefa criada."); loadAll();
-  }catch(e){toast("Erro ao criar: "+e.message);}
+    if(id){await api("/tasks/"+id,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});}
+    else{await api("/tasks",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});}
+    dlgTask.close();toast("Salvo.");loadTasks();
+  }catch(e){toast("Erro ao salvar: "+e.message);}
 }
-async function move(id,status){try{await api("/tasks/"+id,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({status})});loadAll();}catch(e){toast("Erro: "+e.message);}}
-async function delTask(id){if(!confirm("Excluir a tarefa #"+id+"?"))return;try{await api("/tasks/"+id,{method:"DELETE"});toast("Excluída.");loadAll();}catch(e){toast("Erro: "+e.message);}}
-async function editTask(id){
-  const title=prompt("Novo título (vazio = manter):");
-  if(title===null)return;
-  const body={}; if(title.trim())body.title=title.trim();
-  if(Object.keys(body).length===0)return;
-  try{await api("/tasks/"+id,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});loadAll();}catch(e){toast("Erro: "+e.message);}
+async function move(id,status){try{await api("/tasks/"+id,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({status})});loadTasks();}catch(e){toast("Erro: "+e.message);}}
+async function delTask(id){
+  if(!confirm("Excluir a tarefa #"+id+" e seus anexos?"))return;
+  // apaga anexos vinculados primeiro
+  for(const f of (ATT[id]||[]))   { try{await api("/uploads/"+encodeURIComponent(f),{method:"DELETE"});}catch{} }
+  delete ATT[id];saveAtt();
+  try{await api("/tasks/"+id,{method:"DELETE"});toast("Excluída.");loadTasks();}catch(e){toast("Erro: "+e.message);}
 }
 
-// ---------- Uploads ----------
-async function uploadFile(){
-  const f=$("#file").files[0]; if(!f)return toast("Escolha um arquivo.");
-  const fd=new FormData(); fd.append("file",f);
+// ---- Anexos (por tarefa) ----
+let CUR_ATT_TASK=null;
+function openAtt(id,title){CUR_ATT_TASK=id;$("#dlgAttTitle").textContent="Anexos · #"+id+" "+title;renderAtt();dlgAtt.showModal();}
+function renderAtt(){
+  const box=$("#attList");const list=ATT[CUR_ATT_TASK]||[];
+  if(!list.length){box.innerHTML='<div class="muted" style="margin-bottom:10px">Nenhum anexo.</div>';return;}
+  box.innerHTML="";
+  list.forEach(f=>{const row=document.createElement("div");row.className="attrow";
+    row.innerHTML=`<span class="name">${esc(f)}</span>
+      <button class="icon" onclick="openFile('${esc(f)}')">Abrir</button>
+      <button class="icon danger" onclick="delAtt('${esc(f)}')">Apagar</button>`;
+    box.appendChild(row);});
+}
+async function addAtt(){
+  const file=$("#attFile").files[0];if(!file)return toast("Escolha um arquivo.");
+  const fd=new FormData();fd.append("file",file);
   try{
     const r=await api("/uploads",{method:"POST",body:fd});
-    const list=$("#uplist"); if(list.querySelector(".muted"))list.innerHTML="";
-    const row=document.createElement("div");
-    row.innerHTML=`✔ <a href="${API}/uploads/${encodeURIComponent(r.filename)}" target="_blank">${escapeHtml(r.filename)}</a> <span class="muted">(${r.storage_mode})</span>`;
-    list.prepend(row); toast("Upload OK."); loadEvents();
+    ATT[CUR_ATT_TASK]=ATT[CUR_ATT_TASK]||[];ATT[CUR_ATT_TASK].push(r.filename);saveAtt();
+    $("#attFile").value="";renderAtt();loadTasks();toast("Anexo enviado ("+r.storage_mode+").");
   }catch(e){toast("Erro no upload: "+e.message);}
 }
-
-// ---------- Eventos ----------
-async function loadEvents(){
-  const box=$("#events");
+async function openFile(f){
+  // GET protegido: busca com token e abre como blob (funciona local e S3).
   try{
-    const evs=await api("/events?limit=30");
-    if(!evs.length){box.innerHTML='<span class="muted">Sem eventos ainda.</span>';return;}
-    box.innerHTML="";
-    evs.forEach(e=>{const d=document.createElement("div");d.className="evt";
-      d.innerHTML=`<span class="t">${escapeHtml(e.event_type)}</span> ${escapeHtml(e.message||"")}<br><span class="ts">${new Date(e.created_at).toLocaleString()}${e.task_id?" · tarefa #"+e.task_id:""}</span>`;
-      box.appendChild(d);});
-  }catch(e){box.innerHTML='<span class="muted">Eventos indisponíveis ('+e.message+')</span>';}
+    const h=TOKEN?{"Authorization":"Bearer "+TOKEN}:{};
+    const r=await fetch(API+"/uploads/"+encodeURIComponent(f)+"?via=stream",{headers:h});
+    if(!r.ok)throw new Error(r.status);
+    const url=URL.createObjectURL(await r.blob());window.open(url,"_blank");
+    setTimeout(()=>URL.revokeObjectURL(url),60000);
+  }catch(e){toast("Erro ao abrir: "+e.message);}
+}
+async function delAtt(f){
+  if(!confirm("Apagar o anexo?"))return;
+  try{await api("/uploads/"+encodeURIComponent(f),{method:"DELETE"});}catch(e){/* segue mesmo se já sumiu */}
+  ATT[CUR_ATT_TASK]=(ATT[CUR_ATT_TASK]||[]).filter(x=>x!==f);saveAtt();renderAtt();loadTasks();toast("Anexo apagado.");
 }
 
-function escapeHtml(s){return (s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+function loadAll(){ping();loadTasks();}
+setInterval(ping,15000);
 
-async function loadAll(){ if(await ping()){ loadTasks(); loadEvents(); } }
-setApiLabel(); loadAll(); setInterval(ping,15000);
+// boot
+setApiLabel();
+if(TOKEN){showApp();}else{$("#login").style.display="grid";}
 </script>
 </body>
 </html>

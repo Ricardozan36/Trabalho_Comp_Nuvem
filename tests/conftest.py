@@ -31,6 +31,7 @@ from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import settings
+from app.core.security import require_auth
 from app.db.database import Base, get_db
 from app.main import app
 
@@ -113,6 +114,11 @@ def client(db_session: Session) -> Generator[TestClient, None, None]:
         yield db_session
 
     app.dependency_overrides[get_db] = _override_get_db
+    # Aula 12: as rotas de dados passaram a exigir token JWT. Os testes de CRUD/
+    # uploads/eventos NÃO mandam token — então aqui desligamos a guarda (fingimos
+    # um admin autenticado). A autenticação em si é testada em test_auth.py, que
+    # usa um client SEM esse override.
+    app.dependency_overrides[require_auth] = lambda: "admin"
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()

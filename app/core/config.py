@@ -46,9 +46,20 @@ class Settings(BaseSettings):
     app_port: int = Field(default=8000, ge=1, le=65535)
     log_level: str = Field(default="INFO")
 
-    # Chave usada para assinar tokens/sessões no futuro. Em produção, gere com
-    # `python -c "import secrets; print(secrets.token_urlsafe(32))"`.
+    # Chave usada para assinar os tokens JWT do login (Aula 12). Em produção,
+    # gere com `python -c "import secrets; print(secrets.token_urlsafe(32))"`.
     secret_key: str = Field(default="change-me-please")
+
+    # --- Autenticação (Aula 12) -------------------------------------------
+    # Conta administrativa única da demo. O login (`POST /auth/login`) confere
+    # estas credenciais e devolve um token JWT; as rotas de dados (/tasks,
+    # /uploads, /events) exigem esse token. DEMO: senha fixa `admin#123` em
+    # tudo (app, API, banco, servidores). Em produção: nunca senha fixa/no .env;
+    # use um provedor de identidade (Cognito/OAuth) e segredos rotativos.
+    admin_username: str = Field(default="admin")
+    admin_password: str = Field(default="admin#123")
+    # Validade do token em minutos.
+    jwt_expire_minutes: int = Field(default=480)
 
     # --- Banco de dados ----------------------------------------------------
     # Mesmo formato local e no Amazon RDS — só muda o host/usuário/senha.

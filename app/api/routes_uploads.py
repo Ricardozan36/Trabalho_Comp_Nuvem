@@ -236,3 +236,40 @@ async def get_upload(
     assert isinstance(storage, LocalStorage)
     path = storage.base_dir / filename
     return FileResponse(path=str(path), filename=filename)
+
+
+@router.delete(
+    "/{filename}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Apagar arquivo",
+    responses={
+        204: {"description": "Arquivo apagado."},
+        404: {"description": "Arquivo não encontrado."},
+    },
+)
+async def delete_upload(filename: str) -> Response:
+    """Apaga um arquivo do storage (local ou S3).
+
+    Usado pelo frontend no botão "apagar anexo" (Aula 12). Idempotente do ponto
+    de vista do cliente: se o arquivo não existe, devolve 404.
+
+    Args:
+        filename: Nome armazenado (o mesmo devolvido pelo `POST /uploads`).
+
+    Raises:
+        HTTPException: 404 se o arquivo não existir.
+    """
+    storage = get_storage()
+    if not storage.exists(filename):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Arquivo {filename!r} não encontrado.",
+        )
+    try:
+        storage.delete(filename)
+    except StorageError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Falha ao apagar: {exc}",
+        ) from exc
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
