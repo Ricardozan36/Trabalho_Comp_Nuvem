@@ -10,7 +10,11 @@
   guarda o token e o envia em Authorization: Bearer nas chamadas. Anexos por
   tarefa (incluir/abrir/apagar); o vínculo tarefa↔arquivo fica no localStorage
   (demo) — em produção seria uma tabela no banco.
-  Vanilla HTML/JS, um arquivo só, servido por nginx.
+  Vanilla HTML/JS, um arquivo só, servido por nginx (ou atrás de um proxy HTTPS).
+
+  ROBUSTEZ (Aula 12 — correções): toda chamada tem TIMEOUT (AbortController), o
+  render do quadro é ATÔMICO e SERIALIZADO (nunca duplica cartões em corrida) e
+  ações têm trava de DUPLO-CLIQUE (não cria tarefa/anexo em dobro).
 -->
 <style>
 :root{--bg:#0a0f1e;--panel:#111a2e;--panel2:#0c1426;--card:#1a2540;--ink:#e8eefc;
@@ -21,6 +25,7 @@ radial-gradient(900px 500px at 85% -10%,#2a1d5510,#0000),
 radial-gradient(900px 500px at 0% 0%,#0b3a5510,#0000),var(--bg);color:var(--ink);min-height:100vh}
 button{font:inherit;cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:8px 12px;border-radius:9px;transition:.12s}
 button:hover{filter:brightness(1.12)}
+button:disabled{opacity:.55;cursor:progress}
 button.primary{background:linear-gradient(90deg,var(--accent),#0ea5e9);color:#04121f;border:0;font-weight:800}
 button.ghost{background:transparent}
 button.danger{border-color:#5a2530;color:#fda4af}
@@ -85,7 +90,7 @@ footer{text-align:center;color:var(--muted);font-size:12px;padding:20px}
 
 <!-- ===================== LOGIN ===================== -->
 <section id="login">
-  <form class="loginbox" onsubmit="event.preventDefault();doLogin()">
+  <form class="loginbox" onsubmit="event.preventDefault();doLogin(this.querySelector('button.primary'))">
     <div class="brand"><span class="l">&#9729; CloudTask</span> AI SaaS</div>
     <div class="sub">Entre para acessar o painel</div>
     <label>Usuário</label>
@@ -143,7 +148,7 @@ footer{text-align:center;color:var(--muted);font-size:12px;padding:20px}
       <option value="pending">A fazer</option><option value="in_progress">Fazendo</option><option value="done">Feito</option>
     </select>
   </div>
-  <div class="dlg-f"><button class="ghost" onclick="dlgTask.close()">Cancelar</button><button class="primary" onclick="saveTask()">Salvar</button></div>
+  <div class="dlg-f"><button class="ghost" onclick="dlgTask.close()">Cancelar</button><button class="primary" onclick="saveTask(this)">Salvar</button></div>
 </dialog>
 
 <!-- Modal: anexos -->
@@ -151,8 +156,8 @@ footer{text-align:center;color:var(--muted);font-size:12px;padding:20px}
   <div class="dlg-h"><span id="dlgAttTitle">Anexos</span><button class="ghost icon" onclick="dlgAtt.close()">&times;</button></div>
   <div class="dlg-b">
     <div id="attList"></div>
-    <label>Incluir anexo</label>
-    <div style="display:flex;gap:8px"><input type="file" id="attFile"><button class="primary" onclick="addAtt()">Enviar</button></div>
+    <label>Incluir anexo (até 10 MB)</label>
+    <div style="display:flex;gap:8px"><input type="file" id="attFile"><button class="primary" onclick="addAtt(this)">Enviar</button></div>
   </div>
   <div class="dlg-f"><button class="ghost" onclick="dlgAtt.close()">Fechar</button></div>
 </dialog>
@@ -160,7 +165,7 @@ footer{text-align:center;color:var(--muted);font-size:12px;padding:20px}
 <!-- Modal: config API -->
 <dialog id="dlgCfg">
   <div class="dlg-h">Endpoint da API<button class="ghost icon" onclick="dlgCfg.close()">&times;</button></div>
-  <div class="dlg-b"><label>URL (ex.: http://&lt;IP&gt;:8000)</label><input id="cfg-url"></div>
+  <div class="dlg-b"><label>URL (ex.: <code>/api</code> atrás do proxy, ou <code>https://host/api</code>)</label><input id="cfg-url"></div>
   <div class="dlg-f"><button class="ghost" onclick="dlgCfg.close()">Cancelar</button><button class="primary" onclick="saveCfg()">Salvar</button></div>
 </dialog>
 
@@ -173,48 +178,64 @@ const order=["pending","in_progress","done"];
 const next=s=>order[Math.min(order.indexOf(s)+1,2)];
 const prev=s=>order[Math.max(order.indexOf(s)-1,0)];
 
+// Base da API. Atrás do proxy HTTPS o launcher injeta "/api" (mesma origem ->
+// sem CORS, sem conteúdo misto). Sem injeção, cai num palpite (modo simples).
 const BAKED="__API_BASE__";
 let API=localStorage.getItem("cloudtask_api")||(BAKED&&!BAKED.startsWith("__")?BAKED:"")||(location.protocol+"//"+location.hostname+":8000");
 let TOKEN=localStorage.getItem("cloudtask_token")||"";
 let ATT=JSON.parse(localStorage.getItem("cloudtask_att")||"{}"); // {taskId:[filenames]}
+let TASKS=[];
 
-function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2300);}
+function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("show");clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove("show"),2300);}
 function esc(s){return (s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 function saveAtt(){localStorage.setItem("cloudtask_att",JSON.stringify(ATT));}
 function setApiLabel(){$("#apiLabel").textContent="API: "+API;}
 function openCfg(){$("#cfg-url").value=API;dlgCfg.showModal();}
 function saveCfg(){API=$("#cfg-url").value.trim().replace(/\/$/,"");localStorage.setItem("cloudtask_api",API);dlgCfg.close();setApiLabel();if(TOKEN)loadAll();}
 
-// ---- API helper (injeta Bearer; 401 -> volta ao login) ----
+// ---- fetch com TIMEOUT (AbortController): nenhuma chamada trava a tela ----
+async function tfetch(url,opts={},timeoutMs=15000){
+  const ctrl=new AbortController();
+  const id=setTimeout(()=>ctrl.abort(),timeoutMs);
+  try{return await fetch(url,Object.assign({},opts,{signal:ctrl.signal}));}
+  catch(e){throw new Error(e.name==="AbortError"?"tempo de resposta esgotado":"falha de rede");}
+  finally{clearTimeout(id);}
+}
+
+// ---- helper da API (injeta Bearer; 401 -> login). opts.timeout opcional ----
 async function api(path,opts={}){
   const h=Object.assign({},opts.headers||{});
   if(TOKEN)h["Authorization"]="Bearer "+TOKEN;
-  const r=await fetch(API+path,Object.assign({},opts,{headers:h}));
+  const r=await tfetch(API+path,Object.assign({},opts,{headers:h}),opts.timeout||15000);
   if(r.status===401){logout();throw new Error("sessão expirada");}
-  if(!r.ok){let d="";try{d=JSON.stringify(await r.json());}catch{}; throw new Error(r.status+" "+d);}
+  if(!r.ok){let d="";try{d=JSON.stringify(await r.json());}catch{} throw new Error(r.status+" "+d);}
   return r.status===204?null:r.json();
 }
 
 // ---- Login ----
-async function doLogin(){
+async function doLogin(btn){
   $("#lg-err").textContent="";
+  if(btn)btn.disabled=true;
   try{
-    const r=await fetch(API+"/auth/login",{method:"POST",headers:{"Content-Type":"application/json"},
+    const r=await tfetch(API+"/auth/login",{method:"POST",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({username:$("#lg-user").value,password:$("#lg-pass").value})});
     if(!r.ok){$("#lg-err").textContent=r.status===401?"Usuário ou senha inválidos.":"Erro "+r.status;return;}
-    const d=await r.json(); TOKEN=d.access_token; localStorage.setItem("cloudtask_token",TOKEN);
+    const d=await r.json();TOKEN=d.access_token;localStorage.setItem("cloudtask_token",TOKEN);
     showApp();
-  }catch(e){$("#lg-err").textContent="Não foi possível conectar à API. Configure a URL.";}
+  }catch(e){$("#lg-err").textContent="Não foi possível conectar à API ("+e.message+"). Confira a URL em ⚙.";}
+  finally{if(btn)btn.disabled=false;}
 }
 function logout(){TOKEN="";localStorage.removeItem("cloudtask_token");$("#app").style.display="none";$("#login").style.display="grid";}
-async function showApp(){
+// NÃO bloqueia a UI: mostra o app já e carrega em segundo plano (clicar funciona
+// na hora, mesmo se a API estiver lenta).
+function showApp(){
   $("#login").style.display="none";$("#app").style.display="flex";setApiLabel();
-  try{const me=await api("/auth/me");$("#whoami").textContent=me.username;}catch{$("#whoami").textContent="admin";}
+  api("/auth/me").then(me=>{$("#whoami").textContent=me.username;}).catch(()=>{$("#whoami").textContent="admin";});
   loadAll();
 }
 
 // ---- Health dot ----
-async function ping(){try{await fetch(API+"/health");$("#dot").className="dot";}catch{$("#dot").className="dot off";}}
+async function ping(){try{await tfetch(API+"/health",{},6000);$("#dot").className="dot";}catch{$("#dot").className="dot off";}}
 
 // ---- Tarefas ----
 function attCount(id){return (ATT[id]||[]).length;}
@@ -233,40 +254,53 @@ function card(t){
     </div>`;
   return d;
 }
-let TASKS=[];
-async function loadTasks(){
+// Render ATÔMICO: limpa e popula numa única passada SÍNCRONA (sem await no meio)
+// a partir de TASKS -> impossível duplicar cartões.
+function renderBoard(){
   const cols={pending:$("#col-pending"),in_progress:$("#col-in_progress"),done:$("#col-done")};
-  Object.values(cols).forEach(c=>c.innerHTML="");
   const cnt={pending:0,in_progress:0,done:0};
-  try{
-    TASKS=await api("/tasks?limit=100");
-    TASKS.forEach(t=>{(cols[t.status]||cols.pending).appendChild(card(t));cnt[t.status]=(cnt[t.status]||0)+1;});
-  }catch(e){toast("Erro ao listar: "+e.message);}
-  order.forEach(s=>$("#c-"+s).textContent=cnt[s]);
+  Object.values(cols).forEach(c=>c.innerHTML="");
+  TASKS.forEach(t=>{(cols[t.status]||cols.pending).appendChild(card(t));cnt[t.status]=(cnt[t.status]||0)+1;});
+  order.forEach(s=>$("#c-"+s).textContent=cnt[s]||0);
+}
+// SERIALIZA o carregamento: se já há um em curso, marca para rodar 1x ao final
+// (em vez de disparar vários em paralelo, que se atropelavam e duplicavam).
+let _loading=false,_again=false;
+async function loadTasks(){
+  if(_loading){_again=true;return;}
+  _loading=true;
+  try{ TASKS=await api("/tasks?limit=100"); renderBoard(); }
+  catch(e){ toast("Erro ao listar: "+e.message); }
+  finally{ _loading=false; if(_again){_again=false;loadTasks();} }
 }
 function openNew(){$("#dlgTaskTitle").textContent="Nova tarefa";$("#f-id").value="";$("#f-title").value="";$("#f-desc").value="";$("#f-prio").value="medium";$("#f-status").value="pending";dlgTask.showModal();$("#f-title").focus();}
 function openEdit(id){const t=TASKS.find(x=>x.id===id);if(!t)return;$("#dlgTaskTitle").textContent="Editar tarefa #"+id;$("#f-id").value=id;$("#f-title").value=t.title;$("#f-desc").value=t.description||"";$("#f-prio").value=t.priority;$("#f-status").value=t.status;dlgTask.showModal();}
-async function saveTask(){
+// Trava de DUPLO-CLIQUE: ignora reentrância e desabilita o botão durante o save.
+let _saving=false;
+async function saveTask(btn){
+  if(_saving)return;
   const id=$("#f-id").value, title=$("#f-title").value.trim();
   if(!title)return toast("Informe um título.");
   const body={title,description:$("#f-desc").value.trim()||null,priority:$("#f-prio").value,status:$("#f-status").value};
+  _saving=true;if(btn)btn.disabled=true;
   try{
     if(id){await api("/tasks/"+id,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});}
     else{await api("/tasks",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});}
     dlgTask.close();toast("Salvo.");loadTasks();
   }catch(e){toast("Erro ao salvar: "+e.message);}
+  finally{_saving=false;if(btn)btn.disabled=false;}
 }
 async function move(id,status){try{await api("/tasks/"+id,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({status})});loadTasks();}catch(e){toast("Erro: "+e.message);}}
 async function delTask(id){
   if(!confirm("Excluir a tarefa #"+id+" e seus anexos?"))return;
-  // apaga anexos vinculados primeiro
-  for(const f of (ATT[id]||[]))   { try{await api("/uploads/"+encodeURIComponent(f),{method:"DELETE"});}catch{} }
+  for(const f of (ATT[id]||[])){try{await api("/uploads/"+encodeURIComponent(f),{method:"DELETE"});}catch{}}
   delete ATT[id];saveAtt();
   try{await api("/tasks/"+id,{method:"DELETE"});toast("Excluída.");loadTasks();}catch(e){toast("Erro: "+e.message);}
 }
 
 // ---- Anexos (por tarefa) ----
 let CUR_ATT_TASK=null;
+const MAX_UP=10*1024*1024;
 function openAtt(id,title){CUR_ATT_TASK=id;$("#dlgAttTitle").textContent="Anexos · #"+id+" "+title;renderAtt();dlgAtt.showModal();}
 function renderAtt(){
   const box=$("#attList");const list=ATT[CUR_ATT_TASK]||[];
@@ -278,20 +312,27 @@ function renderAtt(){
       <button class="icon danger" onclick="delAtt('${esc(f)}')">Apagar</button>`;
     box.appendChild(row);});
 }
-async function addAtt(){
+// Trava de duplo-clique + limite de tamanho + dedup -> não sobe arquivo em dobro.
+let _uploading=false;
+async function addAtt(btn){
+  if(_uploading)return;
   const file=$("#attFile").files[0];if(!file)return toast("Escolha um arquivo.");
+  if(file.size>MAX_UP)return toast("Arquivo acima de 10 MB — não suportado.");
+  _uploading=true;if(btn){btn.disabled=true;btn.textContent="Enviando…";}
   const fd=new FormData();fd.append("file",file);
   try{
-    const r=await api("/uploads",{method:"POST",body:fd});
-    ATT[CUR_ATT_TASK]=ATT[CUR_ATT_TASK]||[];ATT[CUR_ATT_TASK].push(r.filename);saveAtt();
-    $("#attFile").value="";renderAtt();loadTasks();toast("Anexo enviado ("+r.storage_mode+").");
+    const r=await api("/uploads",{method:"POST",body:fd,timeout:60000});
+    ATT[CUR_ATT_TASK]=ATT[CUR_ATT_TASK]||[];
+    if(!ATT[CUR_ATT_TASK].includes(r.filename))ATT[CUR_ATT_TASK].push(r.filename);
+    saveAtt();$("#attFile").value="";renderAtt();renderBoard();toast("Anexo enviado.");
   }catch(e){toast("Erro no upload: "+e.message);}
+  finally{_uploading=false;if(btn){btn.disabled=false;btn.textContent="Enviar";}}
 }
 async function openFile(f){
   // GET protegido: busca com token e abre como blob (funciona local e S3).
   try{
     const h=TOKEN?{"Authorization":"Bearer "+TOKEN}:{};
-    const r=await fetch(API+"/uploads/"+encodeURIComponent(f)+"?via=stream",{headers:h});
+    const r=await tfetch(API+"/uploads/"+encodeURIComponent(f)+"?via=stream",{headers:h},60000);
     if(!r.ok)throw new Error(r.status);
     const url=URL.createObjectURL(await r.blob());window.open(url,"_blank");
     setTimeout(()=>URL.revokeObjectURL(url),60000);
@@ -300,7 +341,7 @@ async function openFile(f){
 async function delAtt(f){
   if(!confirm("Apagar o anexo?"))return;
   try{await api("/uploads/"+encodeURIComponent(f),{method:"DELETE"});}catch(e){/* segue mesmo se já sumiu */}
-  ATT[CUR_ATT_TASK]=(ATT[CUR_ATT_TASK]||[]).filter(x=>x!==f);saveAtt();renderAtt();loadTasks();toast("Anexo apagado.");
+  ATT[CUR_ATT_TASK]=(ATT[CUR_ATT_TASK]||[]).filter(x=>x!==f);saveAtt();renderAtt();renderBoard();toast("Anexo apagado.");
 }
 
 function loadAll(){ping();loadTasks();}
