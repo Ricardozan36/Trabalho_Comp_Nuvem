@@ -1,368 +1,145 @@
-<!doctype html>
-<html lang="pt-br">
+<!DOCTYPE html>
+<html lang="pt-BR">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>CloudTask AI SaaS</title>
-<!--
-  Frontend SPA (Aula 12) — interface estilo app real para a API do CloudTask.
-  Telas: LOGIN -> DASHBOARD (kanban). Auth por JWT (admin / admin#123): o login
-  guarda o token e o envia em Authorization: Bearer nas chamadas. Anexos por
-  tarefa (incluir/abrir/apagar); o vínculo tarefa↔arquivo fica no localStorage
-  (demo) — em produção seria uma tabela no banco.
-  Vanilla HTML/JS, um arquivo só, servido por nginx (ou atrás de um proxy HTTPS).
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CloudTask AI - Login</title>
+    <style>
+        body {
+            background-color: #121214; 
+            color: #e1e1e6;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
 
-  ROBUSTEZ (Aula 12 — correções): toda chamada tem TIMEOUT (AbortController), o
-  render do quadro é ATÔMICO e SERIALIZADO (nunca duplica cartões em corrida) e
-  ações têm trava de DUPLO-CLIQUE (não cria tarefa/anexo em dobro).
--->
-<style>
-:root{--bg:#0a0f1e;--panel:#111a2e;--panel2:#0c1426;--card:#1a2540;--ink:#e8eefc;
---muted:#90a1c2;--accent:#38bdf8;--accent2:#7c3aed;--ok:#22c55e;--warn:#f59e0b;--hi:#ef4444;--line:#243352}
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:system-ui,Segoe UI,sans-serif;background:
-radial-gradient(900px 500px at 85% -10%,#2a1d5510,#0000),
-radial-gradient(900px 500px at 0% 0%,#0b3a5510,#0000),var(--bg);color:var(--ink);min-height:100vh}
-button{font:inherit;cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:8px 12px;border-radius:9px;transition:.12s}
-button:hover{filter:brightness(1.12)}
-button:disabled{opacity:.55;cursor:progress}
-button.primary{background:linear-gradient(90deg,var(--accent),#0ea5e9);color:#04121f;border:0;font-weight:800}
-button.ghost{background:transparent}
-button.danger{border-color:#5a2530;color:#fda4af}
-button.icon{padding:5px 8px;font-size:13px}
-input,select,textarea{font:inherit;background:var(--panel2);border:1px solid var(--line);color:var(--ink);padding:10px 12px;border-radius:9px;width:100%}
-label{font-size:12px;color:var(--muted);display:block;margin:8px 0 4px}
-.hidden{display:none!important}
-.muted{color:var(--muted)}
+        .login-card {
+            background-color: #202024;
+            padding: 40px;
+            border-radius: 8px; 
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            text-align: center;
+            width: 320px;
+            border-top: 4px solid #8257e5;
+        }
 
-/* LOGIN */
-#login{min-height:100vh;display:grid;place-items:center;padding:20px}
-.loginbox{width:min(380px,94vw);background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:26px;box-shadow:0 20px 60px #0008}
-.brand{font-size:22px;font-weight:900;text-align:center;margin-bottom:4px}
-.brand .l{color:var(--accent)}
-.sub{text-align:center;color:var(--muted);font-size:13px;margin-bottom:18px}
-.loginbox button{width:100%;margin-top:16px;padding:11px}
-.hint{margin-top:14px;text-align:center;font-size:12px;color:var(--muted)}
-.err{color:#fda4af;font-size:13px;margin-top:10px;min-height:18px;text-align:center}
+        .login-card h1 {
+            color: #e1e1e6;
+            margin-top: 0;
+            margin-bottom: 5px;
+            font-size: 26px;
+            letter-spacing: 1px;
+        }
 
-/* APP */
-#app{display:none;min-height:100vh;flex-direction:column}
-header{background:#070d1b;border-bottom:1px solid var(--line);padding:11px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:6}
-header .brand{font-size:17px;text-align:left}
-.who{font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:4px 10px}
-.dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--ok);margin-right:6px}
-.dot.off{background:var(--hi)}
-.spacer{flex:1}
-.toolbar{max-width:1240px;margin:16px auto 0;padding:0 16px;width:100%;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-.toolbar h2{font-size:15px;margin-right:auto}
-main{max-width:1240px;margin:14px auto;padding:0 16px;width:100%}
-.board{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
-@media(max-width:980px){.board{grid-template-columns:1fr}}
-.col{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px;min-height:160px}
-.col h3{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:12px;display:flex;justify-content:space-between;align-items:center}
-.count{background:#10203a;color:var(--muted);border-radius:999px;padding:1px 9px;font-size:11px}
-.card{background:var(--card);border-radius:12px;padding:12px;margin-bottom:11px;border-left:4px solid var(--accent)}
-.card.p-high{border-left-color:var(--hi)}.card.p-medium{border-left-color:var(--warn)}.card.p-low{border-left-color:var(--ok)}
-.card h4{font-size:14.5px;margin-bottom:5px;word-break:break-word}
-.card .desc{font-size:12.5px;color:var(--muted);word-break:break-word;margin-bottom:8px}
-.meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.pill{font-size:10px;font-weight:800;padding:2px 8px;border-radius:999px}
-.p-high .pill{background:rgba(239,68,68,.18);color:#fda4af}
-.p-medium .pill{background:rgba(245,158,11,.18);color:#fcd34d}
-.p-low .pill{background:rgba(34,197,94,.18);color:#86efac}
-.att-badge{font-size:11px;color:var(--muted)}
-.cardbtns{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+        .login-card h1 span { color: #8257e5; }
 
-/* MODAL */
-dialog{margin:auto;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:16px;padding:0;width:min(460px,94vw)}
-dialog::backdrop{background:#02060ccc;backdrop-filter:blur(2px)}
-.dlg-h{padding:16px 18px;border-bottom:1px solid var(--line);font-weight:800;display:flex;justify-content:space-between;align-items:center}
-.dlg-b{padding:16px 18px}
-.dlg-f{padding:14px 18px;border-top:1px solid var(--line);display:flex;gap:10px;justify-content:flex-end}
-.attrow{display:flex;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:8px 10px;margin-bottom:8px;font-size:13px}
-.attrow .name{flex:1;word-break:break-all}
-.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#0c1426;border:1px solid var(--line);padding:10px 16px;border-radius:10px;font-size:13px;opacity:0;transition:.2s;pointer-events:none;z-index:50}
-.toast.show{opacity:1}
-footer{text-align:center;color:var(--muted);font-size:12px;padding:20px}
-</style>
+        .login-card p {
+            color: #a8a8b3;
+            font-size: 14px;
+            margin-bottom: 30px;
+            line-height: 1.5;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px 14px;
+            margin-bottom: 15px;
+            background-color: #121214;
+            border: 1px solid #323238;
+            border-radius: 4px;
+            color: #c4c4cc;
+            box-sizing: border-box;
+            outline: none;
+            transition: all 0.3s;
+        }
+
+        input:focus {
+            border-color: #8257e5;
+            box-shadow: 0 0 0 1px #8257e5;
+        }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            background-color: #8257e5;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s;
+            margin-bottom: 20px;
+        }
+
+        button:hover { background-color: #996dff; }
+        button:active { transform: scale(0.98); }
+
+        .register-link { color: #a8a8b3; font-size: 14px; }
+        
+        /* Ajuste do CSS para o link manter a mesma estética do layout original */
+        .register-link a { color: #8257e5; font-weight: bold; text-decoration: none; }
+        .register-link a:hover { color: #996dff; text-decoration: underline; }
+
+        #msgErro { color: #e83f5b; font-size: 14px; margin-bottom: 15px; min-height: 20px; }
+    </style>
 </head>
 <body>
 
-<!-- ===================== LOGIN ===================== -->
-<section id="login">
-  <form class="loginbox" onsubmit="event.preventDefault();doLogin(this.querySelector('button.primary'))">
-    <div class="brand"><span class="l">&#9729; CloudTask</span> AI SaaS</div>
-    <div class="sub">Entre para acessar o painel</div>
-    <label>Usuário</label>
-    <input id="lg-user" value="admin" autocomplete="username">
-    <label>Senha</label>
-    <input id="lg-pass" type="password" value="admin#123" autocomplete="current-password">
-    <button class="primary" type="submit">Entrar</button>
-    <div class="err" id="lg-err"></div>
-    <div class="hint">Demo: <b>admin</b> / <b>admin#123</b> &middot; <a href="#" onclick="openCfg();return false" style="color:var(--accent)">configurar API</a></div>
-  </form>
-</section>
+    <div class="login-card">
+        <h1>CloudTask <span>AI</span></h1>
+        <p>Sua rotina na nuvem,<br>mais inteligente.</p>
 
-<!-- ===================== APP ===================== -->
-<div id="app">
-  <header>
-    <div class="brand"><span class="l">&#9729; CloudTask</span> AI SaaS</div>
-    <span class="who"><span class="dot off" id="dot"></span><span id="whoami">—</span></span>
-    <span class="spacer"></span>
-    <span class="muted" id="apiLabel" style="font-size:12px"></span>
-    <button class="ghost icon" onclick="openCfg()">&#9881;</button>
-    <button class="ghost icon" onclick="loadAll()">&#8635;</button>
-    <button class="ghost icon" onclick="logout()">Sair</button>
-  </header>
+        <div id="msgErro"></div>
 
-  <div class="toolbar">
-    <h2>Quadro de tarefas</h2>
-    <button class="primary" onclick="openNew()">+ Nova tarefa</button>
-  </div>
+        <input type="email" placeholder="E-mail de acesso" id="emailInput">
+        <input type="password" placeholder="Sua senha" id="senhaInput">
 
-  <main>
-    <div class="board">
-      <div class="col"><h3>A fazer <span class="count" id="c-pending">0</span></h3><div id="col-pending"></div></div>
-      <div class="col"><h3>Fazendo <span class="count" id="c-in_progress">0</span></h3><div id="col-in_progress"></div></div>
-      <div class="col"><h3>Feito <span class="count" id="c-done">0</span></h3><div id="col-done"></div></div>
+        <button onclick="fazerLogin()">Acessar Plataforma</button>
+
+        <div class="register-link">
+            Novo por aqui? <a href="cadastro.html">Crie sua conta</a>
+        </div>
     </div>
-  </main>
-  <footer>CloudTask AI SaaS &middot; demonstração de produção (Aula 12) &middot; Computação em Nuvem / UNINTER</footer>
-</div>
 
-<!-- Modal: nova/editar tarefa -->
-<dialog id="dlgTask">
-  <div class="dlg-h"><span id="dlgTaskTitle">Nova tarefa</span><button class="ghost icon" onclick="dlgTask.close()">&times;</button></div>
-  <div class="dlg-b">
-    <input type="hidden" id="f-id">
-    <label>Título *</label>
-    <input id="f-title" maxlength="200" placeholder="Ex.: Provisionar infra com CDK">
-    <label>Descrição</label>
-    <textarea id="f-desc" rows="3" placeholder="Detalhes (opcional)"></textarea>
-    <label>Prioridade</label>
-    <select id="f-prio">
-      <option value="low">Baixa</option><option value="medium" selected>Média</option><option value="high">Alta</option>
-    </select>
-    <label>Status</label>
-    <select id="f-status">
-      <option value="pending">A fazer</option><option value="in_progress">Fazendo</option><option value="done">Feito</option>
-    </select>
-  </div>
-  <div class="dlg-f"><button class="ghost" onclick="dlgTask.close()">Cancelar</button><button class="primary" onclick="saveTask(this)">Salvar</button></div>
-</dialog>
+    <script>
+        async function fazerLogin() {
+            const email = document.getElementById('emailInput').value;
+            const password = document.getElementById('senhaInput').value;
+            const msgErro = document.getElementById('msgErro');
 
-<!-- Modal: anexos -->
-<dialog id="dlgAtt">
-  <div class="dlg-h"><span id="dlgAttTitle">Anexos</span><button class="ghost icon" onclick="dlgAtt.close()">&times;</button></div>
-  <div class="dlg-b">
-    <div id="attList"></div>
-    <label>Incluir anexo (até 10 MB)</label>
-    <div style="display:flex;gap:8px"><input type="file" id="attFile"><button class="primary" onclick="addAtt(this)">Enviar</button></div>
-  </div>
-  <div class="dlg-f"><button class="ghost" onclick="dlgAtt.close()">Fechar</button></div>
-</dialog>
+            if (!email || !password) {
+                msgErro.innerText = "Preencha e-mail e senha.";
+                return;
+            }
 
-<!-- Modal: config API -->
-<dialog id="dlgCfg">
-  <div class="dlg-h">Endpoint da API<button class="ghost icon" onclick="dlgCfg.close()">&times;</button></div>
-  <div class="dlg-b"><label>URL (ex.: <code>/api</code> atrás do proxy, ou <code>https://host/api</code>)</label><input id="cfg-url"></div>
-  <div class="dlg-f"><button class="ghost" onclick="dlgCfg.close()">Cancelar</button><button class="primary" onclick="saveCfg()">Salvar</button></div>
-</dialog>
+            const formData = new URLSearchParams();
+            formData.append('username', email);
+            formData.append('password', password);
 
-<div class="toast" id="toast"></div>
+            try {
+                const response = await fetch('/token', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: formData
+                });
 
-<script>
-const $=s=>document.querySelector(s);
-const PRIOS={high:"alta",medium:"média",low:"baixa"};
-const order=["pending","in_progress","done"];
-const next=s=>order[Math.min(order.indexOf(s)+1,2)];
-const prev=s=>order[Math.max(order.indexOf(s)-1,0)];
-
-// Base da API. Atrás do proxy HTTPS o launcher injeta "/api" (mesma origem ->
-// sem CORS, sem conteúdo misto). Sem injeção, cai num palpite (modo simples).
-const BAKED="__API_BASE__";
-let API=localStorage.getItem("cloudtask_api")||(BAKED&&!BAKED.startsWith("__")?BAKED:"")||(location.protocol+"//"+location.hostname+":8000");
-let TOKEN=localStorage.getItem("cloudtask_token")||"";
-let ATT=JSON.parse(localStorage.getItem("cloudtask_att")||"{}"); // {taskId:[filenames]}
-let TASKS=[];
-
-function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("show");clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove("show"),2300);}
-function esc(s){return (s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
-function saveAtt(){localStorage.setItem("cloudtask_att",JSON.stringify(ATT));}
-function setApiLabel(){$("#apiLabel").textContent="API: "+API;}
-function openCfg(){$("#cfg-url").value=API;dlgCfg.showModal();}
-function saveCfg(){API=$("#cfg-url").value.trim().replace(/\/$/,"");localStorage.setItem("cloudtask_api",API);dlgCfg.close();setApiLabel();if(TOKEN)loadAll();}
-
-// ---- fetch com TIMEOUT (AbortController): nenhuma chamada trava a tela ----
-// Rastreia as requisições em voo para poder CANCELAR todas no logout (senão uma
-// chamada pendente deixa as travas presas e o board não carrega no relogin).
-const _ctrls=new Set();
-function abortAll(){for(const c of _ctrls){try{c.abort();}catch{}}_ctrls.clear();}
-async function tfetch(url,opts={},timeoutMs=15000){
-  const ctrl=new AbortController();_ctrls.add(ctrl);
-  const id=setTimeout(()=>ctrl.abort(),timeoutMs);
-  try{return await fetch(url,Object.assign({},opts,{signal:ctrl.signal}));}
-  catch(e){throw new Error(e.name==="AbortError"?"tempo de resposta esgotado":"falha de rede");}
-  finally{clearTimeout(id);_ctrls.delete(ctrl);}
-}
-function closeDialogs(){[dlgTask,dlgAtt,dlgCfg].forEach(d=>{try{if(d.open)d.close();}catch{}});}
-
-// ---- helper da API (injeta Bearer; 401 -> login). opts.timeout opcional ----
-async function api(path,opts={}){
-  const h=Object.assign({},opts.headers||{});
-  if(TOKEN)h["Authorization"]="Bearer "+TOKEN;
-  const r=await tfetch(API+path,Object.assign({},opts,{headers:h}),opts.timeout||15000);
-  if(r.status===401){logout();throw new Error("sessão expirada");}
-  if(!r.ok){let d="";try{d=JSON.stringify(await r.json());}catch{} throw new Error(r.status+" "+d);}
-  return r.status===204?null:r.json();
-}
-
-// ---- Login ----
-async function doLogin(btn){
-  $("#lg-err").textContent="";
-  if(btn)btn.disabled=true;
-  try{
-    const r=await tfetch(API+"/auth/login",{method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({username:$("#lg-user").value,password:$("#lg-pass").value})});
-    if(!r.ok){$("#lg-err").textContent=r.status===401?"Usuário ou senha inválidos.":"Erro "+r.status;if(btn)btn.disabled=false;return;}
-    const d=await r.json();localStorage.setItem("cloudtask_token",d.access_token);
-    // Em vez de uma transição via JS (que em alguns navegadores deixava a tela
-    // sem responder), recarregamos: a página entra pela via "boot com token",
-    // 100% limpa e comprovadamente estável.
-    location.reload();
-  }catch(e){$("#lg-err").textContent="Não foi possível conectar à API ("+e.message+"). Confira a URL em ⚙.";if(btn)btn.disabled=false;}
-}
-function logout(){
-  abortAll();                                  // cancela requisições em voo
-  TOKEN="";localStorage.removeItem("cloudtask_token");
-  // Recarrega para o login com estado 100% limpo (sem travas/modais presos).
-  location.reload();
-}
-// NÃO bloqueia a UI: mostra o app já e carrega em segundo plano (clicar funciona
-// na hora, mesmo se a API estiver lenta).
-function showApp(){
-  closeDialogs();_loading=_again=_saving=_uploading=false;  // estado limpo a cada entrada
-  $("#login").style.display="none";$("#app").style.display="flex";setApiLabel();
-  api("/auth/me").then(me=>{$("#whoami").textContent=me.username;}).catch(()=>{$("#whoami").textContent="admin";});
-  loadAll();
-}
-
-// ---- Health dot ----
-async function ping(){try{await tfetch(API+"/health",{},6000);$("#dot").className="dot";}catch{$("#dot").className="dot off";}}
-
-// ---- Tarefas ----
-function attCount(id){return (ATT[id]||[]).length;}
-function card(t){
-  const d=document.createElement("div");d.className="card p-"+t.priority;
-  d.innerHTML=`<h4>#${t.id} ${esc(t.title)}</h4>
-    ${t.description?`<div class="desc">${esc(t.description)}</div>`:""}
-    <div class="meta"><span class="pill">${PRIOS[t.priority]||t.priority}</span>
-      <span class="att-badge">&#128206; ${attCount(t.id)} anexo(s)</span></div>
-    <div class="cardbtns">
-      ${t.status!=="pending"?`<button class="icon" title="voltar" onclick="move(${t.id},'${prev(t.status)}')">&#8592;</button>`:""}
-      ${t.status!=="done"?`<button class="icon" title="avançar" onclick="move(${t.id},'${next(t.status)}')">&#8594;</button>`:""}
-      <button class="icon" onclick="openAtt(${t.id},'${esc(t.title)}')">&#128206; Anexos</button>
-      <button class="icon" onclick="openEdit(${t.id})">Editar</button>
-      <button class="icon danger" onclick="delTask(${t.id})">Excluir</button>
-    </div>`;
-  return d;
-}
-// Render ATÔMICO: limpa e popula numa única passada SÍNCRONA (sem await no meio)
-// a partir de TASKS -> impossível duplicar cartões.
-function renderBoard(){
-  const cols={pending:$("#col-pending"),in_progress:$("#col-in_progress"),done:$("#col-done")};
-  const cnt={pending:0,in_progress:0,done:0};
-  Object.values(cols).forEach(c=>c.innerHTML="");
-  TASKS.forEach(t=>{(cols[t.status]||cols.pending).appendChild(card(t));cnt[t.status]=(cnt[t.status]||0)+1;});
-  order.forEach(s=>$("#c-"+s).textContent=cnt[s]||0);
-}
-// SERIALIZA o carregamento: se já há um em curso, marca para rodar 1x ao final
-// (em vez de disparar vários em paralelo, que se atropelavam e duplicavam).
-let _loading=false,_again=false;
-async function loadTasks(){
-  if(_loading){_again=true;return;}
-  _loading=true;
-  try{ TASKS=await api("/tasks?limit=100"); renderBoard(); }
-  catch(e){ toast("Erro ao listar: "+e.message); }
-  finally{ _loading=false; if(_again){_again=false;loadTasks();} }
-}
-function openNew(){$("#dlgTaskTitle").textContent="Nova tarefa";$("#f-id").value="";$("#f-title").value="";$("#f-desc").value="";$("#f-prio").value="medium";$("#f-status").value="pending";dlgTask.showModal();$("#f-title").focus();}
-function openEdit(id){const t=TASKS.find(x=>x.id===id);if(!t)return;$("#dlgTaskTitle").textContent="Editar tarefa #"+id;$("#f-id").value=id;$("#f-title").value=t.title;$("#f-desc").value=t.description||"";$("#f-prio").value=t.priority;$("#f-status").value=t.status;dlgTask.showModal();}
-// Trava de DUPLO-CLIQUE: ignora reentrância e desabilita o botão durante o save.
-let _saving=false;
-async function saveTask(btn){
-  if(_saving)return;
-  const id=$("#f-id").value, title=$("#f-title").value.trim();
-  if(!title)return toast("Informe um título.");
-  const body={title,description:$("#f-desc").value.trim()||null,priority:$("#f-prio").value,status:$("#f-status").value};
-  _saving=true;if(btn)btn.disabled=true;
-  try{
-    if(id){await api("/tasks/"+id,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});}
-    else{await api("/tasks",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});}
-    dlgTask.close();toast("Salvo.");loadTasks();
-  }catch(e){toast("Erro ao salvar: "+e.message);}
-  finally{_saving=false;if(btn)btn.disabled=false;}
-}
-async function move(id,status){try{await api("/tasks/"+id,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({status})});loadTasks();}catch(e){toast("Erro: "+e.message);}}
-async function delTask(id){
-  if(!confirm("Excluir a tarefa #"+id+" e seus anexos?"))return;
-  for(const f of (ATT[id]||[])){try{await api("/uploads/"+encodeURIComponent(f),{method:"DELETE"});}catch{}}
-  delete ATT[id];saveAtt();
-  try{await api("/tasks/"+id,{method:"DELETE"});toast("Excluída.");loadTasks();}catch(e){toast("Erro: "+e.message);}
-}
-
-// ---- Anexos (por tarefa) ----
-let CUR_ATT_TASK=null;
-const MAX_UP=10*1024*1024;
-function openAtt(id,title){CUR_ATT_TASK=id;$("#dlgAttTitle").textContent="Anexos · #"+id+" "+title;renderAtt();dlgAtt.showModal();}
-function renderAtt(){
-  const box=$("#attList");const list=ATT[CUR_ATT_TASK]||[];
-  if(!list.length){box.innerHTML='<div class="muted" style="margin-bottom:10px">Nenhum anexo.</div>';return;}
-  box.innerHTML="";
-  list.forEach(f=>{const row=document.createElement("div");row.className="attrow";
-    row.innerHTML=`<span class="name">${esc(f)}</span>
-      <button class="icon" onclick="openFile('${esc(f)}')">Abrir</button>
-      <button class="icon danger" onclick="delAtt('${esc(f)}')">Apagar</button>`;
-    box.appendChild(row);});
-}
-// Trava de duplo-clique + limite de tamanho + dedup -> não sobe arquivo em dobro.
-let _uploading=false;
-async function addAtt(btn){
-  if(_uploading)return;
-  const file=$("#attFile").files[0];if(!file)return toast("Escolha um arquivo.");
-  if(file.size>MAX_UP)return toast("Arquivo acima de 10 MB — não suportado.");
-  _uploading=true;if(btn){btn.disabled=true;btn.textContent="Enviando…";}
-  const fd=new FormData();fd.append("file",file);
-  try{
-    const r=await api("/uploads",{method:"POST",body:fd,timeout:60000});
-    ATT[CUR_ATT_TASK]=ATT[CUR_ATT_TASK]||[];
-    if(!ATT[CUR_ATT_TASK].includes(r.filename))ATT[CUR_ATT_TASK].push(r.filename);
-    saveAtt();$("#attFile").value="";renderAtt();renderBoard();toast("Anexo enviado.");
-  }catch(e){toast("Erro no upload: "+e.message);}
-  finally{_uploading=false;if(btn){btn.disabled=false;btn.textContent="Enviar";}}
-}
-async function openFile(f){
-  // GET protegido: busca com token e abre como blob (funciona local e S3).
-  try{
-    const h=TOKEN?{"Authorization":"Bearer "+TOKEN}:{};
-    const r=await tfetch(API+"/uploads/"+encodeURIComponent(f)+"?via=stream",{headers:h},60000);
-    if(!r.ok)throw new Error(r.status);
-    const url=URL.createObjectURL(await r.blob());window.open(url,"_blank");
-    setTimeout(()=>URL.revokeObjectURL(url),60000);
-  }catch(e){toast("Erro ao abrir: "+e.message);}
-}
-async function delAtt(f){
-  if(!confirm("Apagar o anexo?"))return;
-  try{await api("/uploads/"+encodeURIComponent(f),{method:"DELETE"});}catch(e){/* segue mesmo se já sumiu */}
-  ATT[CUR_ATT_TASK]=(ATT[CUR_ATT_TASK]||[]).filter(x=>x!==f);saveAtt();renderAtt();renderBoard();toast("Anexo apagado.");
-}
-
-function loadAll(){ping();loadTasks();}
-setInterval(ping,15000);
-
-// boot
-setApiLabel();
-if(TOKEN){showApp();}else{$("#login").style.display="grid";}
-</script>
+                if (response.ok) {
+                    const data = await response.json();
+                    localStorage.setItem('access_token', data.access_token);
+                    localStorage.setItem('userEmail', email);
+                    window.location.href = '/dashboard.html';
+                } else {
+                    msgErro.innerText = 'Falha no login: Verifique seu e-mail e senha.';
+                }
+            } catch (error) {
+                console.error('Erro de conexão:', error);
+                msgErro.innerText = 'Erro ao conectar com a API.';
+            }
+        }
+    </script>
 </body>
 </html>
