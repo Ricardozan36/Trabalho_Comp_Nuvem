@@ -43,9 +43,15 @@ bash infra/servers/semana-06-servidores-subir.sh
 # ...abra o link "App" (https://<ip>.sslip.io/). Login: admin / admin#123
 # (o certificado pode levar ~1-3 min após o boot para ficar válido)
 
+# não anotou os links? reimprime tudo (links + token do Swagger):
+bash infra/servers/mostrar-links.sh
+
 # derrubar (SEMPRE ao terminar)
 bash infra/servers/semana-06-servidores-destruir.sh
 ```
+
+> `mostrar-links.sh` acha o host pela tag `project=cloudtask-demo` do Elastic IP
+> — funciona tanto pro caminho CLI quanto pro `cdk deploy`.
 
 ## Variáveis úteis (todas têm default)
 
