@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CloudTask AI - Login</title>
+    <title>CloudTask AI - Cadastro</title>
     <style>
         body {
             background-color: #121214; 
@@ -80,9 +80,17 @@
 
         .register-link { color: #a8a8b3; font-size: 14px; }
         
-        /* Ajuste do CSS para o link manter a mesma estética do layout original */
-        .register-link a { color: #8257e5; font-weight: bold; text-decoration: none; }
-        .register-link a:hover { color: #996dff; text-decoration: underline; }
+        /* Ajuste para o link <a> ficar idêntico ao span original */
+        .register-link a { 
+            color: #8257e5; 
+            cursor: pointer; 
+            font-weight: bold; 
+            text-decoration: none;
+        }
+        .register-link a:hover { 
+            color: #996dff; 
+            text-decoration: underline; 
+        }
 
         #msgErro { color: #e83f5b; font-size: 14px; margin-bottom: 15px; min-height: 20px; }
     </style>
@@ -91,22 +99,22 @@
 
     <div class="login-card">
         <h1>CloudTask <span>AI</span></h1>
-        <p>Sua rotina na nuvem,<br>mais inteligente.</p>
+        <p>Crie sua conta para<br>acessar a plataforma.</p>
 
         <div id="msgErro"></div>
 
         <input type="email" placeholder="E-mail de acesso" id="emailInput">
-        <input type="password" placeholder="Sua senha" id="senhaInput">
+        <input type="password" placeholder="Crie sua senha" id="senhaInput">
 
-        <button onclick="fazerLogin()">Acessar Plataforma</button>
+        <button onclick="criarConta()">Cadastrar</button>
 
         <div class="register-link">
-            Novo por aqui? <a href="cadastro.html">Crie sua conta</a>
+            Já tem conta? <a href="index.html">Faça login</a>
         </div>
     </div>
 
     <script>
-        async function fazerLogin() {
+        async function criarConta() {
             const email = document.getElementById('emailInput').value;
             const password = document.getElementById('senhaInput').value;
             const msgErro = document.getElementById('msgErro');
@@ -116,28 +124,38 @@
                 return;
             }
 
-            const formData = new URLSearchParams();
-            formData.append('username', email);
-            formData.append('password', password);
-
             try {
-                const response = await fetch('/token', {
+                const response = await fetch('/signup', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: formData
+                    headers: { 'Content-Type': 'application/json' },
+                    // Ajuste feito aqui: enviando username, email e password
+                    body: JSON.stringify({ username: email, email: email, password: password })
                 });
 
-                if (response.ok) {
-                    const data = await response.json();
-                    localStorage.setItem('access_token', data.access_token);
-                    localStorage.setItem('userEmail', email);
-                    window.location.href = '/dashboard.html';
-                } else {
-                    msgErro.innerText = 'Falha no login: Verifique seu e-mail e senha.';
+                if (!response.ok) {
+                    const err = await response.json();
+                    let textoErro = "Erro ao criar conta.";
+                    
+                    // Verifica se o FastAPI mandou um detalhe
+                    if (err.detail) {
+                        // Se for um texto simples (Ex: "Email já registrado")
+                        if (typeof err.detail === 'string') {
+                            textoErro = err.detail;
+                        } 
+                        // Se for uma lista de validação do Pydantic
+                        else if (Array.isArray(err.detail)) {
+                            textoErro = err.detail[0].msg; 
+                        }
+                    }
+                    
+                    throw new Error(textoErro);
                 }
-            } catch (error) {
-                console.error('Erro de conexão:', error);
-                msgErro.innerText = 'Erro ao conectar com a API.';
+
+                alert("Conta criada com sucesso! Faça o login.");
+                window.location.href = 'index.html'; 
+            } catch (err) {
+                // Agora isso sempre será um texto legível
+                msgErro.innerText = err.message;
             }
         }
     </script>

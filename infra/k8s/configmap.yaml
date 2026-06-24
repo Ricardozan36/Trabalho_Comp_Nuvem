@@ -24,9 +24,11 @@ data:
   POSTGRES_PORT: "5432"
   POSTGRES_DB: "cloudtask"
 
-  # Modo de upload — Aula 6 ainda usa local (S3 vem nos manifests aws/ depois).
-  STORAGE_MODE: "local"
-  LOCAL_UPLOADS_DIR: "/data/uploads"
+  # Modo de upload — Ajustado para S3
+  STORAGE_MODE: "s3"
+  LOCAL_UPLOADS_DIR: "uploads_dir"
+  AWS_REGION: "us-east-1"
+  S3_BUCKET_NAME: "cloudtask-uploads-ricar-1782259933" # ATENÇÃO: Substitua pelo nome real do seu bucket criado na AWS
 
   # HTTPS desligado: dev local Kind sem ALB.
   FORCE_HTTPS: "false"

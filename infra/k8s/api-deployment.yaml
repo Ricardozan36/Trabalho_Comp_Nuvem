@@ -1,36 +1,21 @@
-# =============================================================================
-# api-deployment.yaml — API FastAPI no cluster Kind com S3 AWS.
-# =============================================================================
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: api
+  name: cloudtask-api # Corrigido para o nome que o seu cluster reconhece
   namespace: cloudtask
   labels: { app: api, component: backend }
 spec:
   replicas: 2
   selector:
     matchLabels: { app: api }
-  strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 0
   template:
     metadata:
       labels: { app: api, component: backend }
     spec:
-      # InitContainer para garantir que o Postgres esteja aceitando conexões
       initContainers:
         - name: wait-for-postgres
           image: postgres:16-alpine
-          command:
-            - sh
-            - -c
-            - >-
-              until pg_isready -h postgres -p 5432 -U "$POSTGRES_USER";
-              do echo "esperando postgres..."; sleep 2; done;
-              echo "postgres pronto."
+          command: ["sh", "-c", "until pg_isready -h postgres -p 5432 -U \"$POSTGRES_USER\"; do echo \"esperando postgres...\"; sleep 2; done;"]
           env:
             - name: POSTGRES_USER
               valueFrom:
@@ -38,52 +23,23 @@ spec:
       containers:
         - name: api
           image: cloudtask-api:prod
-          imagePullPolicy: Never  # <--- Isso força o Kubernetes a usar SÓ a imagem local
+          imagePullPolicy: Never
           command: ["uvicorn"]
           args: ["app.main:app", "--host", "0.0.0.0", "--port", "8000"]
-          
           env:
             - name: PYTHONPATH
               value: "/app"
-            # Aponta a biblioteca da AWS para o arquivo que montamos abaixo
-            - name: AWS_SHARED_CREDENTIALS_FILE
-              value: "/etc/aws/credentials"
-          
           envFrom:
-            - configMapRef: { name: api-config } # Atualizado para o novo configmap
-            - secretRef: { name: cloudtask-secrets }
-          
+            - configMapRef: { name: cloudtask-config } # Certifique-se que o nome é cloudtask-config
+            - secretRef: { name: cloudtask-secrets }   # Injeta tudo do Secret como variável de ambiente
           ports:
             - containerPort: 8000
               name: http
-          
-          # Monta o Secret do Kubernetes como um arquivo físico no container
-          volumeMounts:
-            - name: aws-cred-volume
-              mountPath: "/etc/aws"
-              readOnly: true
-          
-          # Probes de Saúde
           readinessProbe:
-            httpGet:
-              path: /health/ready
-              port: 8000
+            httpGet: { path: /health/ready, port: 8000 }
             initialDelaySeconds: 5
             periodSeconds: 5
           livenessProbe:
-            httpGet:
-              path: /health
-              port: 8000
+            httpGet: { path: /health, port: 8000 }
             initialDelaySeconds: 15
             periodSeconds: 15
-
-          # Recursos definidos para o container
-          resources:
-            requests: { cpu: "100m", memory: "128Mi" }
-            limits:   { cpu: "500m", memory: "256Mi" }
-            
-      # Declaração do volume puxando os dados do Secret aws-credentials
-      volumes:
-        - name: aws-cred-volume
-          secret:
-            secretName: aws-credentials

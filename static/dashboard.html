@@ -83,8 +83,12 @@
 
     <script>
         const API_URL = ''; // Vazio = mesma origem do backend
-        const token = localStorage.getItem('token');
-        if (!token) window.location.href = 'login.html';
+        
+        // AJUSTE 1: Puxar o token pelo nome correto que foi salvo no index.html
+        const token = localStorage.getItem('access_token');
+        
+        // AJUSTE 2: Se não houver token, redirecionar para index.html (não login.html)
+        if (!token) window.location.href = 'index.html';
 
         function getAuthHeaders(isUpload = false) {
             const headers = { 'Authorization': `Bearer ${token}` };
@@ -152,7 +156,8 @@
             carregarTarefas();
         }
 
-        function sair() { localStorage.clear(); window.location.href = 'login.html'; }
+        // AJUSTE 3: O botão de sair também deve redirecionar para index.html
+        function sair() { localStorage.clear(); window.location.href = 'index.html'; }
     </script>
 </body>
 </html>
