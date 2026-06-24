@@ -30,6 +30,13 @@ chmod 700 /home/appuser/.aws /home/appuser/.kube || true
 sudo mkdir -p /home/appuser/.cache/aws/jsii /home/appuser/.cache/pip
 sudo chown -R appuser:appuser /home/appuser/.cache || true
 
+# Posse do projeto para o appuser. POR QUÊ: dependendo de como o workspace é
+# montado (bind mount do Windows, clone feito por root, etc.) os arquivos podem
+# aparecer como root -> o aluno não consegue editar/rodar/commitar. Devolvemos a
+# posse ao appuser. O '|| true' evita quebrar o build se o mount não permitir
+# (ex.: bind mount onde a posse é virtual).
+sudo chown -R appuser:appuser /app 2>/dev/null || true
+
 # Pasta do histórico do zsh, persistida num volume (ver devcontainer.json).
 # POR QUÊ: o histórico de comandos sobrevive a rebuilds do container.
 sudo mkdir -p /commandhistory
