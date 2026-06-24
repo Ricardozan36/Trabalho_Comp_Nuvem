@@ -156,7 +156,7 @@ class ComputeStack(Stack):
                 from_port=port,
                 to_port=port,
                 source_security_group_id=sg.security_group_id,
-                description="interno (Edge -> API/Grafana)",
+                description="interno (Edge para API e Grafana)",
             )
 
         subnet_id = vpc.public_subnets[0].subnet_id
@@ -226,7 +226,7 @@ class ComputeStack(Stack):
                 from_port=5432,
                 to_port=5432,
                 source_security_group_id=sg.security_group_id,
-                description="API EC2 -> RDS (5432)",
+                description="API EC2 para RDS 5432",
             )
 
         # --- Grafana (subpath /grafana + dashboard como home) ---------------
