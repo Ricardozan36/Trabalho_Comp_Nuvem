@@ -109,7 +109,7 @@
         <button onclick="criarConta()">Cadastrar</button>
 
         <div class="register-link">
-            Já tem conta? <a href="index.html">Faça login</a>
+            Já tem conta? <a href="index.html" onclick="window.location.assign('index.html?cachebuster=' + new Date().getTime()); return false;">Faça login</a>
         </div>
     </div>
 
@@ -125,10 +125,10 @@
             }
 
             try {
-                const response = await fetch('/signup', {
+                // Ajuste 1: Adicionado o prefixo /api/auth/ para passar pelo proxy do Caddy
+                const response = await fetch('/api/auth/signup', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    // Ajuste feito aqui: enviando username, email e password
                     body: JSON.stringify({ username: email, email: email, password: password })
                 });
 
@@ -136,13 +136,10 @@
                     const err = await response.json();
                     let textoErro = "Erro ao criar conta.";
                     
-                    // Verifica se o FastAPI mandou um detalhe
                     if (err.detail) {
-                        // Se for um texto simples (Ex: "Email já registrado")
                         if (typeof err.detail === 'string') {
                             textoErro = err.detail;
                         } 
-                        // Se for uma lista de validação do Pydantic
                         else if (Array.isArray(err.detail)) {
                             textoErro = err.detail[0].msg; 
                         }
@@ -152,9 +149,9 @@
                 }
 
                 alert("Conta criada com sucesso! Faça o login.");
-                window.location.href = 'index.html'; 
+                // Ajuste 2: Cachebuster no redirecionamento para garantir que o SPA não bloqueie a volta
+                window.location.assign('index.html?cachebuster=' + new Date().getTime());
             } catch (err) {
-                // Agora isso sempre será um texto legível
                 msgErro.innerText = err.message;
             }
         }

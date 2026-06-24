@@ -82,12 +82,13 @@
     </main>
 
     <script>
-        const API_URL = ''; // Vazio = mesma origem do backend
+        // AJUSTE CRÍTICO: A API do professor é servida através do caminho /api pelo roteador (Caddy)
+        const API_URL = '/api'; 
         
-        // AJUSTE 1: Puxar o token pelo nome correto que foi salvo no index.html
+        // Puxar o token pelo nome correto que foi salvo no index.html
         const token = localStorage.getItem('access_token');
         
-        // AJUSTE 2: Se não houver token, redirecionar para index.html (não login.html)
+        // Se não houver token, redirecionar para index.html 
         if (!token) window.location.href = 'index.html';
 
         function getAuthHeaders(isUpload = false) {
@@ -103,17 +104,25 @@
         });
 
         async function carregarTarefas() {
-            const response = await fetch(`${API_URL}/tasks`, { headers: getAuthHeaders() });
-            if (response.ok) {
-                const tarefas = await response.json();
-                const tabela = document.getElementById('tabelaTarefas');
-                tabela.innerHTML = '';
-                document.getElementById('totalTasks').innerText = tarefas.length;
-                tarefas.forEach(t => {
-                    tabela.innerHTML += `<tr><td>${t.id}</td><td>${t.title}</td><td>${t.priority}</td>
-                    <td class="${t.status === 'done' ? 'status-concluida' : 'status-pendente'}">${t.status}</td>
-                    <td><button onclick="excluirTarefa(${t.id})">🗑️</button></td></tr>`;
-                });
+            try {
+                // Adicionando o cachebuster nas requisições GET para evitar dados velhos no dashboard
+                const response = await fetch(`${API_URL}/tasks?t=${new Date().getTime()}`, { headers: getAuthHeaders() });
+                if (response.ok) {
+                    const tarefas = await response.json();
+                    const tabela = document.getElementById('tabelaTarefas');
+                    tabela.innerHTML = '';
+                    document.getElementById('totalTasks').innerText = tarefas.length;
+                    tarefas.forEach(t => {
+                        tabela.innerHTML += `<tr><td>${t.id}</td><td>${t.title}</td><td>${t.priority}</td>
+                        <td class="${t.status === 'done' ? 'status-concluida' : 'status-pendente'}">${t.status}</td>
+                        <td><button onclick="excluirTarefa(${t.id})">🗑️</button></td></tr>`;
+                    });
+                } else if (response.status === 401) {
+                    // Se o token expirou, forçar logout
+                    sair();
+                }
+            } catch (error) {
+                console.error("Erro ao carregar tarefas:", error);
             }
         }
 
@@ -127,7 +136,7 @@
             try {
                 const response = await fetch(`${API_URL}/uploads`, { 
                     method: 'POST', 
-                    headers: { 'Authorization': `Bearer ${token}` }, // Não setar Content-Type
+                    headers: { 'Authorization': `Bearer ${token}` }, // Não setar Content-Type para FormData
                     body: formData 
                 });
                 
@@ -142,22 +151,40 @@
 
         async function adicionarTarefa() {
             const title = document.getElementById('taskTitle').value;
-            const priority = document.getElementById('taskPriority').value.toLowerCase();
-            await fetch(`${API_URL}/tasks`, {
-                method: 'POST',
-                headers: getAuthHeaders(),
-                body: JSON.stringify({ title, priority, status: 'pending' })
-            });
-            carregarTarefas();
+            const priorityElement = document.getElementById('taskPriority');
+            // A API espera 'low', 'medium', 'high'. Precisamos converter o valor do <select> que está em português.
+            let priorityAPI = 'medium';
+            if(priorityElement.value === 'Baixa') priorityAPI = 'low';
+            if(priorityElement.value === 'Alta') priorityAPI = 'high';
+
+            if (!title) return alert('Digite um título para a tarefa.');
+
+            try {
+                await fetch(`${API_URL}/tasks`, {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({ title: title, priority: priorityAPI, status: 'pending' })
+                });
+                document.getElementById('taskTitle').value = ''; // limpa o input
+                carregarTarefas();
+            } catch (error) {
+                console.error("Erro ao adicionar:", error);
+            }
         }
 
         async function excluirTarefa(id) {
-            await fetch(`${API_URL}/tasks/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
-            carregarTarefas();
+            try {
+                await fetch(`${API_URL}/tasks/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
+                carregarTarefas();
+            } catch (error) {
+                console.error("Erro ao deletar:", error);
+            }
         }
 
-        // AJUSTE 3: O botão de sair também deve redirecionar para index.html
-        function sair() { localStorage.clear(); window.location.href = 'index.html'; }
+        function sair() { 
+            localStorage.clear(); 
+            window.location.assign('index.html?cachebuster=' + new Date().getTime()); 
+        }
     </script>
 </body>
 </html>
