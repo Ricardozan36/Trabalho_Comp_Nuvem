@@ -5,7 +5,7 @@ A **7ª stack**: descreve como IaC os MESMOS três servidores que o caminho "CLI
 reproduzível com ``cdk deploy``. Mesma arquitetura **Edge/Caddy/HTTPS**:
 
     navegador ──HTTPS (cert válido)──► EDGE (Caddy)  ──HTTP interno──►  API  (:8000)
-    (443)                              <ip>.sslip.io  ├─ /api/*      ──►  Grafana(:3000)
+    (443)                              <ip>.sslip.io  ├─ /api/* ──►  Grafana(:3000)
                                        serve o SPA    └─ /grafana/*
 
     * **Edge** (t3.small) — Caddy: serve o SPA, faz proxy ``/api``→API e
@@ -30,6 +30,8 @@ from __future__ import annotations
 
 import base64
 import gzip
+import tarfile
+import io
 from pathlib import Path
 
 from aws_cdk import CfnOutput, CfnTag, Fn, Stack
@@ -44,7 +46,7 @@ _HERE = Path(__file__).resolve()
 _INFRA = _HERE.parents[2]                 # .../infra
 _REPO = _HERE.parents[3]                  # raiz do repositório
 _SERVERS = _INFRA / "servers"
-_FRONT_HTML = _REPO / "frontend" / "index.html"
+_FRONT_DIR = _REPO / "frontend"
 
 
 def _body(path: Path) -> str:
@@ -67,8 +69,9 @@ mkdir -p /etc/caddy /srv/cloudtask /var/lib/caddy
 cat > /tmp/site.gz.b64 <<'B64'
 @@HTMLB64@@
 B64
-base64 -d /tmp/site.gz.b64 | gunzip > /srv/cloudtask/index.html
-sed -i 's#__API_BASE__#/api#' /srv/cloudtask/index.html
+base64 -d /tmp/site.gz.b64 > /tmp/site.tar.gz
+tar -xzf /tmp/site.tar.gz -C /srv/cloudtask/
+sed -i 's#__API_BASE__#/api#' /srv/cloudtask/*.html 2>/dev/null || true
 HASH=$(/usr/local/bin/caddy hash-password --plaintext '@@ADMINPW@@')
 printf 'CLOUDTASK_HASH=%s\\n' "$HASH" > /etc/caddy/caddy.env
 cat > /etc/caddy/Caddyfile <<'CADDY'
@@ -246,9 +249,12 @@ class ComputeStack(Stack):
         )
 
         # --- Edge (Caddy: TLS + SPA + proxy) --------------------------------
-        html_b64 = base64.b64encode(
-            gzip.compress(_FRONT_HTML.read_bytes(), mtime=0)  # mtime=0 => synth estável
-        ).decode()
+        tar_stream = io.BytesIO()
+        with tarfile.open(fileobj=tar_stream, mode="w:gz") as tar:
+            tar.add(_FRONT_DIR, arcname=".")
+
+        html_b64 = base64.b64encode(tar_stream.getvalue()).decode()
+        
         edge_script = (
             _EDGE_TEMPLATE
             .replace("@@HTMLB64@@", html_b64)
