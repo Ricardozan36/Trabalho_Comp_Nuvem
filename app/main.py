@@ -174,14 +174,18 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 UPLOADS_DIR = os.path.join(BASE_DIR, settings.local_uploads_dir)
 
-# 2. Garantir que as pastas existem
+# 2. Garantir que a pasta do frontend existe
 os.makedirs(STATIC_DIR, exist_ok=True)
-os.makedirs(UPLOADS_DIR, exist_ok=True)
 
-# 3. Montar uploads
-app.mount("/uploads_static", StaticFiles(directory=UPLOADS_DIR), name="uploads_static")
+# 3. Montar uploads APENAS se for usar localmente (evita erro de permissão no Docker)
+if settings.storage_mode == "local":
+    try:
+        os.makedirs(UPLOADS_DIR, exist_ok=True)
+        app.mount("/uploads_static", StaticFiles(directory=UPLOADS_DIR), name="uploads_static")
+    except Exception as e:
+        logging.error(f"Não foi possível configurar a pasta de uploads local: {e}")
 
-# 4. Montar Frontend (sempre por último)
+# 4. Montar Frontend (sempre por último para capturar a rota raiz "/")
 if os.path.exists(STATIC_DIR):
     app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")
 else:
