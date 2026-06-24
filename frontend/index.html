@@ -101,7 +101,7 @@
         <button onclick="fazerLogin()">Acessar Plataforma</button>
 
         <div class="register-link">
-            Novo por aqui? <a href="cadastro.html">Crie sua conta</a>
+            Novo por aqui? <a href="cadastro.html" onclick="window.location.assign('cadastro.html?cachebuster=' + new Date().getTime()); return false;">Crie sua conta</a>
         </div>
     </div>
 
@@ -131,7 +131,11 @@
                     const data = await response.json();
                     localStorage.setItem('access_token', data.access_token);
                     localStorage.setItem('userEmail', email);
-                    window.location.href = '/dashboard.html';
+                    
+                    // A MÁGICA ACONTECE AQUI:
+                    // Usamos window.location.assign() para forçar o carregamento de um arquivo estático.
+                    // Adicionamos um parâmetro aleatório na URL para despistar qualquer cache de proxy do servidor.
+                    window.location.assign('dashboard.html?cachebuster=' + new Date().getTime());
                 } else {
                     msgErro.innerText = 'Falha no login: Verifique seu e-mail e senha.';
                 }
