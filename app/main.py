@@ -47,6 +47,8 @@ from app.core.config import settings
 from app.core.security import require_auth
 from app.db.database import Base, engine
 from app.schemas import RootResponse
+from fastapi import FastAPI
+
 
 # ---------------------------------------------------------------------------
 # Texto rico em Markdown exibido na home do Swagger UI.
@@ -181,7 +183,7 @@ app = FastAPI(
     lifespan=lifespan,
     # Atrás do Edge/Caddy a API fica em `/api` (o proxy remove o prefixo). O
     # root_path faz o FastAPI gerar as URLs do Swagger/OpenAPI já com `/api`.
-    root_path=settings.root_path,
+    root_path="/api",
     contact={
         "name": "Prof. Guilherme Patriota",
         "url": "https://github.com/guipatriota",
