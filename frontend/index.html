@@ -116,12 +116,16 @@
                 return;
             }
 
+            // AJUSTE: O FastAPI com OAuth2 espera dados em formato de formulário, não JSON
+            const formData = new URLSearchParams();
+            formData.append('username', email);
+            formData.append('password', password);
+
             try {
-                // Ajustado para a URL e o formato JSON exigidos pelo backend do CloudTask
                 const response = await fetch('/api/auth/login', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username: email, password: password })
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: formData
                 });
 
                 if (response.ok) {
@@ -129,9 +133,7 @@
                     localStorage.setItem('access_token', data.access_token);
                     localStorage.setItem('userEmail', email);
                     
-                    // A MÁGICA ACONTECE AQUI:
-                    // Usamos window.location.assign() para forçar o carregamento de um arquivo estático.
-                    // Adicionamos um parâmetro aleatório na URL para despistar qualquer cache de proxy do servidor.
+                    // Sucesso! Agora o navegador deve trocar a tela
                     window.location.assign('dashboard.html?cachebuster=' + new Date().getTime());
                 } else {
                     msgErro.innerText = 'Falha no login: Verifique seu e-mail e senha.';
