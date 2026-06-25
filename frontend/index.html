@@ -105,29 +105,26 @@
                 return;
             }
 
-            const formData = new URLSearchParams();
-            formData.append('username', username);
-            formData.append('password', password);
-
             try {
-                // Rota correta validada pelo seu backend
+                // O backend (routes_auth.py) espera JSON, então enviamos JSON!
                 const response = await fetch('/api/auth/login', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: formData
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: username, password: password })
                 });
 
                 if (response.ok) {
                     const data = await response.json();
                     localStorage.setItem('access_token', data.access_token);
                     localStorage.setItem('userEmail', username);
+                    
                     window.location.assign('dashboard.html?cachebuster=' + new Date().getTime());
                 } else {
                     msgErro.innerText = 'Login inválido.';
                 }
             } catch (error) {
                 console.error('Erro:', error);
-                msgErro.innerText = 'Erro ao conectar.';
+                msgErro.innerText = 'Erro ao conectar com a API.';
             }
         }
     </script>
