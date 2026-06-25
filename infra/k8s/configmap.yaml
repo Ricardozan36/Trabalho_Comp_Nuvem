@@ -26,7 +26,7 @@ data:
 
   # Modo de upload
   STORAGE_MODE: "s3"
-  S3_BUCKET_NAME: "cloudtask-uploads-ricar-1782409476"
+  S3_BUCKET_NAME: "cloudtaskstorage-uploadsbucket5e5e9b64-y2unlcgkajan"
   AWS_REGION: "us-east-1"
 
   # HTTPS desligado: dev local Kind sem ALB.
